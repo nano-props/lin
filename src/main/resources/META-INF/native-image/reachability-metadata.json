@@ -1,0 +1,38 @@
+{
+  "resources": [
+    {
+      "glob": "web/**"
+    },
+    {
+      "glob": "native/**"
+    }
+  ],
+  "foreign": {
+    "downcalls": [
+      {
+        "returnType": "int",
+        "parameterTypes": ["void*", "void*", "void*", "int", "int", "void*", "void*"]
+      },
+      {
+        "returnType": "int",
+        "parameterTypes": ["int", "int", "int"]
+      },
+      {
+        "returnType": "long long",
+        "parameterTypes": ["int", "void*", "int"]
+      },
+      {
+        "returnType": "int",
+        "parameterTypes": ["int", "int"]
+      },
+      {
+        "returnType": "int",
+        "parameterTypes": ["int", "void*"]
+      },
+      {
+        "returnType": "int",
+        "parameterTypes": ["int"]
+      }
+    ]
+  }
+}

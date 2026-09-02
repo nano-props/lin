@@ -1,0 +1,7 @@
+.gradle/
+build/
+frontend/dist/
+frontend/node_modules/
+.idea/
+.playwright-cli/
+*.iml
