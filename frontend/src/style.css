@@ -352,6 +352,10 @@ button {
   width: min(760px, calc(100% - 32px));
 }
 
+.terminal-composer--expanded > .terminal-composer__toggle {
+  display: none;
+}
+
 .terminal-composer__toggle,
 .terminal-composer__mode,
 .terminal-composer__upload,
