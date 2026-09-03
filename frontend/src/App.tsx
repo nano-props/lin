@@ -1,6 +1,7 @@
 import { Plus } from '@lucide/vue'
 import { useEventListener } from '@vueuse/core'
 import { computed, defineComponent, nextTick, ref } from 'vue'
+import type { PropType } from 'vue'
 import { TerminalPane } from './TerminalPane.tsx'
 import type { TerminalSessionState } from './TerminalPane.tsx'
 import { Tip } from './Tip.tsx'
@@ -17,7 +18,7 @@ const ACCESS_TOKEN_KEY = 'lin.access-token'
 export const App = defineComponent({
   name: 'App',
   setup() {
-    const accessToken = readAccessToken()
+    const accessToken = ref(readAccessToken())
     const tabs = ref<TerminalTab[]>([])
     const activeId = ref('')
     let nextId = 1
@@ -29,7 +30,7 @@ export const App = defineComponent({
     })
 
     const createTerminal = (): void => {
-      if (!accessToken) return
+      if (!accessToken.value) return
       const id = nextId++
       tabs.value.push({ id, title: `shell ${id}`, state: 'connecting' })
       activeId.value = String(id)
@@ -82,10 +83,11 @@ export const App = defineComponent({
       }
     })
 
-    if (accessToken) createTerminal()
+    if (accessToken.value) createTerminal()
 
     return () => {
-      if (!accessToken) return <AccessRequired />
+      if (!accessToken.value) return <AccessRequired onUnlock={(value) => { accessToken.value = value; sessionStorage.setItem(ACCESS_TOKEN_KEY, value); createTerminal() }} />
+      const activeToken = accessToken.value
       const connectionLabel = connectionState.value === 'online' ? 'local' : connectionState.value === 'connecting' ? 'linking' : 'offline'
 
       return (
@@ -153,7 +155,7 @@ export const App = defineComponent({
               >
                 <TerminalPane
                   sessionId={tab.id}
-                  accessToken={accessToken}
+                  accessToken={activeToken}
                   active={activeId.value === String(tab.id)}
                   onStateChange={(state) => updateTab(tab.id, { state })}
                   onTitleChange={(title) => updateTab(tab.id, { title })}
@@ -184,7 +186,11 @@ function handleTabKeydown(event: KeyboardEvent, id: number): void {
 
 const AccessRequired = defineComponent({
   name: 'AccessRequired',
-  setup() {
+  props: {
+    onUnlock: { type: Function as PropType<(token: string) => void>, required: true },
+  },
+  setup(props) {
+    const token = ref('')
     return () => (
       <main class="shell shell--locked" aria-label="lin web terminal">
         <header class="topbar">
@@ -200,8 +206,15 @@ const AccessRequired = defineComponent({
         </header>
         <section class="fatal">
           <span class="fatal__eyebrow">ACCESS REQUIRED</span>
-          <h1>Open lin from its launch URL.</h1>
-          <p>The terminal URL includes a local access token printed by the server.</p>
+          <h1>Connect to your local terminal.</h1>
+          <p>Paste the access token printed by the lin server. It stays in this browser session.</p>
+          <form class="token-entry" onSubmit={(event) => { event.preventDefault(); const value = token.value.trim(); if (value) props.onUnlock(value) }}>
+            <label for="access-token">Access token</label>
+            <div class="token-entry__row">
+              <input id="access-token" type="password" autocomplete="off" spellcheck={false} value={token.value} placeholder="Paste token…" onInput={(event) => { token.value = (event.currentTarget as HTMLInputElement).value }} />
+              <button type="submit" disabled={!token.value.trim()}>Unlock</button>
+            </div>
+          </form>
         </section>
       </main>
     )

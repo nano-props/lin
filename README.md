@@ -13,6 +13,7 @@ A small, local-first web terminal distributed as one Linux executable.
 - Terminal search (`Ctrl/⌘ Shift+F`), resize, scrollback, ANSI colors, and OSC title updates
 - Login shell rooted at `$HOME`
 - Loopback-only binding and a random access token by default
+- Local token entry screen when opened without a tokenized URL
 - WebSocket token and same-origin checks
 - Single-file Linux x86_64 distribution
 

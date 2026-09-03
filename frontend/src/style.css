@@ -597,6 +597,57 @@ button {
   line-height: 1.7;
 }
 
+.token-entry {
+  max-width: 540px;
+  margin-top: 28px;
+}
+
+.token-entry label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.token-entry__row {
+  display: flex;
+  gap: 8px;
+}
+
+.token-entry input,
+.token-entry button {
+  min-height: 40px;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+}
+
+.token-entry input {
+  min-width: 0;
+  flex: 1;
+  padding: 0 11px;
+  outline: none;
+}
+
+.token-entry input:focus { border-color: var(--acid); }
+
+.token-entry button {
+  padding: 0 16px;
+  color: var(--acid);
+  cursor: pointer;
+}
+
+.token-entry button:disabled { cursor: not-allowed; opacity: 0.4; }
+
+@media (max-width: 480px) {
+  .token-entry__row { flex-direction: column; }
+  .token-entry button { width: 100%; }
+}
+
 .tip {
   z-index: 30;
   max-width: 240px;
