@@ -2,6 +2,7 @@ import { Plus } from '@lucide/vue'
 import { useEventListener } from '@vueuse/core'
 import { computed, defineComponent, nextTick, onMounted, ref } from 'vue'
 import type { PropType } from 'vue'
+import { ConnectionStatus } from './ConnectionStatus.tsx'
 import { TerminalPane } from './TerminalPane.tsx'
 import type { TerminalSessionState } from './TerminalPane.tsx'
 import { Tip } from './Tip.tsx'
@@ -103,10 +104,6 @@ export const App = defineComponent({
         if (!response.ok) return false
         authenticated.value = true; createTerminal(); return true
       }} />
-      const connectionLabel = connectionState.value === 'online'
-        ? (isLoopbackHost(location.hostname) ? 'local' : 'remote')
-        : connectionState.value === 'connecting' ? 'linking' : 'offline'
-
       return (
         <main class="shell" aria-label="lin web terminal">
           <header class="topbar">
@@ -155,10 +152,7 @@ export const App = defineComponent({
                 <Plus size={15} strokeWidth={1.5} aria-hidden="true" />
               </button>
             </Tip>
-            <div class={['connection', connectionState.value === 'offline' && 'connection--offline']} title={`${connectionLabel} token-protected connection`}>
-              <span class="connection__dot" />
-              <span>{connectionLabel}</span>
-            </div>
+            <ConnectionStatus state={connectionState.value} />
           </header>
           <div class="terminals">
             {tabs.value.map((tab) => (
@@ -198,10 +192,6 @@ function handleTabKeydown(event: KeyboardEvent, id: number): void {
   const targetIndex = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length
   tabs[targetIndex]?.querySelector<HTMLButtonElement>('[role="tab"]')?.focus()
   tabs[targetIndex]?.querySelector<HTMLButtonElement>('[role="tab"]')?.click()
-}
-
-function isLoopbackHost(hostname: string): boolean {
-  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]'
 }
 
 const AccessRequired = defineComponent({
