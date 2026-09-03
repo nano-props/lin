@@ -338,11 +338,12 @@ button {
 
 .terminal-composer {
   position: absolute;
-  right: 16px;
+  left: 50%;
   bottom: 16px;
   z-index: 8;
   display: flex;
   width: 42px;
+  transform: translateX(-50%);
   justify-content: flex-end;
   pointer-events: none;
 }
@@ -387,6 +388,16 @@ button {
   background: #171a16f2;
   box-shadow: 0 8px 24px #0008;
   pointer-events: auto;
+}
+
+@media (max-width: 640px) {
+  .terminal-composer--expanded {
+    width: calc(100% - 20px);
+  }
+
+  .terminal-composer {
+    bottom: 10px;
+  }
 }
 
 .terminal-composer[data-expanded='false'] .terminal-composer__surface {
