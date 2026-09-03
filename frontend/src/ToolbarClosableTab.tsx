@@ -1,7 +1,7 @@
 import { X } from '@lucide/vue'
 import type { ButtonHTMLAttributes, FunctionalComponent, HTMLAttributes, VNodeChild } from 'vue'
-import { toButtonVNodeRef, toDivVNodeRef } from './goblin-refs.ts'
-import type { ElementRef } from './goblin-refs.ts'
+import { toButtonVNodeRef, toDivVNodeRef } from '#/goblin-refs.ts'
+import type { ElementRef } from '#/goblin-refs.ts'
 
 type DataAttributes = { [K in `data-${string}`]?: string | boolean | undefined }
 type ToolbarClosableTabContainerProps = Omit<HTMLAttributes, 'class'> & DataAttributes

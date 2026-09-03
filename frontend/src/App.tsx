@@ -2,11 +2,11 @@ import { Plus } from '@lucide/vue'
 import { useEventListener } from '@vueuse/core'
 import { computed, defineComponent, nextTick, onMounted, ref } from 'vue'
 import type { PropType } from 'vue'
-import { ConnectionStatus } from './ConnectionStatus.tsx'
-import { TerminalPane } from './TerminalPane.tsx'
-import type { TerminalSessionState } from './TerminalPane.tsx'
-import { Tip } from './Tip.tsx'
-import { ToolbarClosableTab } from './ToolbarClosableTab.tsx'
+import { ConnectionStatus } from '#/ConnectionStatus.tsx'
+import { TerminalPane } from '#/TerminalPane.tsx'
+import type { TerminalSessionState } from '#/TerminalPane.tsx'
+import { Tip } from '#/Tip.tsx'
+import { ToolbarClosableTab } from '#/ToolbarClosableTab.tsx'
 
 interface TerminalTab {
   id: number

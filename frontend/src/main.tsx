@@ -1,5 +1,5 @@
 import { createApp } from 'vue'
-import { App } from './App.tsx'
+import { App } from '#/App.tsx'
 import '@xterm/xterm/css/xterm.css'
 import './style.css'
 

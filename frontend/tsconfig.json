@@ -4,6 +4,7 @@
     "module": "ESNext",
     "lib": ["ES2024", "DOM", "DOM.Iterable"],
     "moduleResolution": "Bundler",
+    "paths": { "#/*": ["./src/*"] },
     "types": ["vite/client"],
     "jsx": "preserve",
     "jsxImportSource": "vue",

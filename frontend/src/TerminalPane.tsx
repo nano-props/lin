@@ -4,16 +4,16 @@ import { Terminal } from '@xterm/xterm'
 import { useEventListener, useResizeObserver } from '@vueuse/core'
 import { defineComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { PropType } from 'vue'
-import { TerminalComposer } from './TerminalComposer.tsx'
-import type { ComposerMode, VirtualKey } from './TerminalComposer.tsx'
-import { uploadTempFile } from './temp-file-upload.ts'
+import { TerminalComposer } from '#/TerminalComposer.tsx'
+import type { ComposerMode, VirtualKey } from '#/TerminalComposer.tsx'
+import { uploadTempFile } from '#/temp-file-upload.ts'
 import {
   decodeExitCode,
   decodeTerminalOutput,
   encodeTerminalBinaryInput,
   encodeTerminalInput,
   encodeTerminalResize,
-} from './terminal-protocol.ts'
+} from '#/terminal-protocol.ts'
 
 export type TerminalSessionState = 'connecting' | 'online' | 'offline'
 

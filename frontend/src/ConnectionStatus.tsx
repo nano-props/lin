@@ -1,6 +1,6 @@
 import { defineComponent } from 'vue'
 import type { PropType } from 'vue'
-import type { TerminalSessionState } from './TerminalPane.tsx'
+import type { TerminalSessionState } from '#/TerminalPane.tsx'
 
 export const ConnectionStatus = defineComponent({
   name: 'ConnectionStatus',
