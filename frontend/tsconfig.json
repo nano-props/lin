@@ -1,10 +1,12 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
-    "useDefineForClassFields": true,
+    "target": "ES2024",
     "module": "ESNext",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
     "moduleResolution": "Bundler",
+    "types": ["vite/client"],
+    "jsx": "preserve",
+    "jsxImportSource": "vue",
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "moduleDetection": "force",
@@ -12,7 +14,9 @@
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noUnusedLocals": true,
-    "noUnusedParameters": true
+    "noUnusedParameters": true,
+    "skipLibCheck": true,
+    "verbatimModuleSyntax": true
   },
   "include": ["src"]
 }

@@ -2,13 +2,15 @@
 
 A small, local-first web terminal distributed as one Linux executable.
 
-`lin` serves an xterm.js interface, opens one PTY-backed login shell per browser tab, and starts every shell in the current user's home directory. The server is Java 25; Linux PTY calls use the Foreign Function & Memory API and a tiny embedded C shim. GraalVM Native Image packages the server, web assets, and shim into one executable.
+`lin` serves a clipped Goblin-style Vue 3 + TSX interface: its toolbar tab and tooltip primitives are migrated from Goblin, with Reka UI, VueUse, Lucide, and xterm.js. It opens one PTY-backed login shell per browser tab and starts every shell in the current user's home directory. The server is Java 25; Linux PTY calls use the Foreign Function & Memory API and a tiny embedded C shim. GraalVM Native Image packages the server, web assets, and shim into one executable.
 
 ## Features
 
 - Multiple independent terminal tabs
 - New/close/switch shortcuts (`Ctrl/⌘ T`, `Ctrl/⌘ W`, `Ctrl/⌘ 1…9`)
-- Terminal resize, scrollback, ANSI colors, and OSC title updates
+- Goblin-style terminal composer with text/key modes, history, virtual keys, send-only, and copy selection
+- File picker and drag-and-drop uploads into a private, expiring temporary directory
+- Terminal search (`Ctrl/⌘ Shift+F`), resize, scrollback, ANSI colors, and OSC title updates
 - Login shell rooted at `$HOME`
 - Loopback-only binding and a random access token by default
 - WebSocket token and same-origin checks
@@ -23,6 +25,8 @@ Requirements: GraalVM for JDK 25, Bun 1.4+, GCC, and Linux PTY headers (`libc6-d
 ```
 
 Open the tokenized URL printed by the process.
+
+The frontend dependency install and production build stay in Bun and shell scripts; Gradle only invokes that build and embeds the resulting static assets.
 
 ## Build
 

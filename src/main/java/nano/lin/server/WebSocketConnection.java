@@ -82,13 +82,24 @@ final class WebSocketConnection {
         }
     }
 
-    void sendBinary(byte[] bytes) {
+    void sendOutput(byte[] bytes) {
+        sendBinary(terminalOutputPayload(bytes));
+    }
+
+    private void sendBinary(byte[] bytes) {
         if (!open.get()) return;
         try {
             sendFrame(0x2, bytes);
         } catch (IOException error) {
             open.set(false);
         }
+    }
+
+    static byte[] terminalOutputPayload(byte[] bytes) {
+        byte[] payload = new byte[bytes.length + 1];
+        payload[0] = 0;
+        System.arraycopy(bytes, 0, payload, 1, bytes.length);
+        return payload;
     }
 
     void sendExit(int exitCode) {

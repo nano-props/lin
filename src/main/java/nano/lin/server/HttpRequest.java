@@ -36,6 +36,18 @@ record HttpRequest(String method, String target, Map<String, String> headers) {
         return headers.get(name.toLowerCase(Locale.ROOT));
     }
 
+    byte[] readBody(InputStream input, int maxBytes) throws IOException {
+        String length = header("content-length");
+        if (length == null) throw new IOException("Content-Length is required");
+        final int expected;
+        try { expected = Integer.parseInt(length); }
+        catch (NumberFormatException error) { throw new IOException("Invalid Content-Length", error); }
+        if (expected < 0 || expected > maxBytes) throw new IOException("Request body is too large");
+        byte[] body = input.readNBytes(expected);
+        if (body.length != expected) throw new IOException("Truncated request body");
+        return body;
+    }
+
     private static String readLine(InputStream input, int[] consumed) throws IOException {
         ByteArrayOutputStream line = new ByteArrayOutputStream();
         boolean carriageReturn = false;

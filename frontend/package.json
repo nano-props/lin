@@ -8,11 +8,17 @@
     "dev": "vite"
   },
   "dependencies": {
+    "@lucide/vue": "1.39.0",
+    "@vueuse/core": "14.4.0",
     "@xterm/addon-fit": "0.11.0",
-    "@xterm/xterm": "6.0.0"
+    "@xterm/addon-search": "0.16.0",
+    "@xterm/xterm": "6.0.0",
+    "reka-ui": "2.10.4",
+    "vue": "3.5.42"
   },
   "devDependencies": {
-    "typescript": "5.9.3",
+    "@vitejs/plugin-vue-jsx": "5.1.6",
+    "typescript": "7.0.2",
     "vite": "8.2.2"
   }
 }
