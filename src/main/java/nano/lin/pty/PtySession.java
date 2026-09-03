@@ -17,6 +17,7 @@ public final class PtySession implements AutoCloseable {
     private final Object writeLock = new Object();
     private volatile int masterFd = -1;
     private volatile int pid = -1;
+    private volatile String processName = "shell";
 
     public PtySession(Consumer<byte[]> output, IntConsumer exited) {
         this.output = output;
@@ -28,12 +29,15 @@ public final class PtySession implements AutoCloseable {
         PtyNative.SpawnResult process = PtyNative.spawn(cols, rows);
         masterFd = process.masterFd();
         pid = process.pid();
+        processName = process.processName();
         alive.set(true);
         // A blocking FFM downcall pins a virtual thread's carrier. Dedicated platform
         // threads keep multiple PTYs from starving the WebSocket virtual threads.
         Thread.ofPlatform().name("lin-pty-output-" + pid).daemon(true).start(this::readOutput);
         Thread.ofPlatform().name("lin-pty-wait-" + pid).daemon(true).start(this::waitForExit);
     }
+
+    public String processName() { return processName; }
 
     public void write(byte[] bytes, int offset, int length) throws IOException {
         synchronized (writeLock) {

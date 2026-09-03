@@ -12,4 +12,9 @@ class WebSocketConnectionTest {
             WebSocketConnection.terminalOutputPayload(new byte[]{2, 0, 0, 0, 7})
         );
     }
+
+    @Test
+    void encodesProcessNameMetadata() {
+        assertArrayEquals(new byte[]{3, 'b', 'a', 's', 'h'}, WebSocketConnection.metadataPayload("bash"));
+    }
 }

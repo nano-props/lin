@@ -74,7 +74,7 @@ final class PtyNative {
             MemorySegment pid = arena.allocate(C_INT);
             int error = (int)SPAWN.invokeExact(cwd, argv, envp, cols, rows, master, pid);
             if (error != 0) throw nativeError("spawn PTY", error);
-            return new SpawnResult(master.get(C_INT, 0), pid.get(C_INT, 0));
+            return new SpawnResult(master.get(C_INT, 0), pid.get(C_INT, 0), Path.of(shell).getFileName().toString());
         } catch (IOException error) {
             throw error;
         } catch (Throwable error) {
@@ -215,5 +215,5 @@ final class PtyNative {
         return new IOException(operation + " failed (errno " + errno + ")");
     }
 
-    record SpawnResult(int masterFd, int pid) {}
+    record SpawnResult(int masterFd, int pid, String processName) {}
 }

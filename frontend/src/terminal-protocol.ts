@@ -2,6 +2,7 @@ const CLIENT_INPUT = 0
 const CLIENT_RESIZE = 1
 const SERVER_OUTPUT = 0
 const SERVER_EXIT = 2
+const SERVER_METADATA = 3
 
 export function encodeTerminalInput(data: string): Uint8Array<ArrayBuffer> {
   const encoded = new TextEncoder().encode(data)
@@ -34,4 +35,9 @@ export function decodeExitCode(bytes: Uint8Array<ArrayBufferLike>): number | nul
 
 export function decodeTerminalOutput(bytes: Uint8Array<ArrayBufferLike>): Uint8Array<ArrayBufferLike> | null {
   return bytes[0] === SERVER_OUTPUT ? bytes.subarray(1) : null
+}
+
+export function decodeProcessName(bytes: Uint8Array<ArrayBufferLike>): string | null {
+  if (bytes[0] !== SERVER_METADATA || bytes.length < 2) return null
+  return new TextDecoder().decode(bytes.subarray(1))
 }

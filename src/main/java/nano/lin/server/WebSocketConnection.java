@@ -41,6 +41,7 @@ final class WebSocketConnection {
 
     void run(PtySession session) throws IOException {
         session.start(80, 24);
+        sendMetadata(session.processName());
         ByteArrayOutputStream fragmented = null;
         int fragmentedOpcode = -1;
 
@@ -80,6 +81,13 @@ final class WebSocketConnection {
         } finally {
             open.set(false);
         }
+    }
+
+    private void sendMetadata(String processName) { sendBinary(metadataPayload(processName)); }
+
+    static byte[] metadataPayload(String processName) {
+        byte[] name = processName.getBytes(StandardCharsets.UTF_8);
+        byte[] payload = new byte[name.length + 1]; payload[0] = 3; System.arraycopy(name, 0, payload, 1, name.length); return payload;
     }
 
     void sendOutput(byte[] bytes) {

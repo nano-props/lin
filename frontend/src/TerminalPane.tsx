@@ -9,11 +9,13 @@ import type { ComposerMode, VirtualKey } from '#/TerminalComposer.tsx'
 import { uploadTempFile } from '#/temp-file-upload.ts'
 import {
   decodeExitCode,
+  decodeProcessName,
   decodeTerminalOutput,
   encodeTerminalBinaryInput,
   encodeTerminalInput,
   encodeTerminalResize,
 } from '#/terminal-protocol.ts'
+import { compactTerminalTitle } from '#/terminal-title.ts'
 
 export type TerminalSessionState = 'connecting' | 'online' | 'offline'
 
@@ -65,6 +67,7 @@ export const TerminalPane = defineComponent({
     const searchOpen = ref(false)
     const searchTerm = ref('')
     const searchInput = ref<HTMLInputElement | null>(null)
+    let processName = 'shell'
     const dragging = ref(false)
 
     const send = (message: Uint8Array<ArrayBuffer>): void => {
@@ -180,7 +183,7 @@ export const TerminalPane = defineComponent({
       terminal.onData((data) => send(encodeTerminalInput(data)))
       terminal.onBinary((data) => send(encodeTerminalBinaryInput(data)))
       terminal.onTitleChange((title) => {
-        const clean = title.trim().replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 80)
+        const clean = compactTerminalTitle(title.replace(/[\u0000-\u001f\u007f]/g, ''))
         if (clean) props.onTitleChange?.(clean)
       })
       socket.addEventListener('open', () => {
@@ -194,6 +197,9 @@ export const TerminalPane = defineComponent({
         const exitCode = decodeExitCode(bytes)
         if (exitCode != null) {
           terminal.write(`\r\n\x1b[38;2;104;112;100m[process exited ${exitCode}]\x1b[0m\r\n`)
+        } else if (decodeProcessName(bytes) != null) {
+          processName = decodeProcessName(bytes) ?? processName
+          props.onTitleChange?.(compactTerminalTitle(processName))
         } else {
           const output = decodeTerminalOutput(bytes)
           if (output) terminal.write(output)
