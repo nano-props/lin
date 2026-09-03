@@ -8,8 +8,6 @@ A small, local-first web terminal distributed as one Linux executable.
 
 - Multiple independent terminal tabs
 - New/close/switch shortcuts (`Ctrl/⌘ T`, `Ctrl/⌘ W`, `Ctrl/⌘ 1…9`)
-- Goblin-style terminal composer with text/key modes, history, virtual keys, send-only, and copy selection
-- File picker and drag-and-drop uploads into a private, expiring temporary directory
 - Terminal search (`Ctrl/⌘ Shift+F`), resize, scrollback, ANSI colors, and OSC title updates
 - Login shell rooted at `$HOME`
 - Loopback-only binding and a random access token by default

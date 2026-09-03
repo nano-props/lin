@@ -26,12 +26,10 @@ public final class LinServer implements AutoCloseable {
     private final Set<PtySession> sessions = ConcurrentHashMap.newKeySet();
     private final CountDownLatch stopped = new CountDownLatch(1);
     private final AtomicBoolean closed = new AtomicBoolean();
-    private final TempFileStore tempFiles;
     private volatile int boundPort;
 
     public LinServer(ServerConfig config) throws IOException {
         this.config = config;
-        this.tempFiles = new TempFileStore();
         serverSocket.setReuseAddress(true);
     }
 
@@ -77,8 +75,6 @@ public final class LinServer implements AutoCloseable {
                 authStatus(output, request);
             } else if ("/ws".equals(target.getPath())) {
                 upgradeWebSocket(socket, input, output, request, target);
-            } else if ("/api/temp-files".equals(target.getPath())) {
-                uploadTempFile(output, input, request);
             } else {
                 serveResource(output, request, target);
             }
@@ -88,21 +84,6 @@ public final class LinServer implements AutoCloseable {
             }
         }
     }
-
-    private void uploadTempFile(OutputStream output, InputStream input, HttpRequest request) throws IOException {
-        if (!"POST".equals(request.method())) { writeError(output, 405, "Method not allowed"); return; }
-        if (!authenticated(request)) { writeError(output, 401, "Authentication required"); return; }
-        if (!validOrigin(request.header("origin"), request.header("host"))) { writeError(output, 403, "Invalid origin"); return; }
-        byte[] body;
-        try { body = request.readBody(input, TempFileStore.MAX_FILE_BYTES); }
-        catch (IOException error) { writeError(output, 413, error.getMessage()); return; }
-        if (body.length == 0) { writeError(output, 400, "Empty file"); return; }
-        var path = tempFiles.store(request.header("x-lin-filename"), body);
-        String json = "{\"path\":\"" + jsonEscape(path.toString()) + "\",\"expiresInSeconds\":3600}";
-        writeResponse(output, 201, "Created", "application/json; charset=utf-8", json.getBytes(StandardCharsets.UTF_8), false);
-    }
-
-    private static String jsonEscape(String value) { return value.replace("\\", "\\\\").replace("\"", "\\\""); }
 
     private void upgradeWebSocket(
         Socket socket,
@@ -298,7 +279,6 @@ public final class LinServer implements AutoCloseable {
         } catch (IOException ignored) {
             // The server is already shutting down.
         }
-        tempFiles.close();
         stopped.countDown();
     }
 }

@@ -4,9 +4,6 @@ import { Terminal } from '@xterm/xterm'
 import { useEventListener, useResizeObserver } from '@vueuse/core'
 import { defineComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { PropType } from 'vue'
-import { TerminalComposer } from '#/TerminalComposer.tsx'
-import type { ComposerMode, VirtualKey } from '#/TerminalComposer.tsx'
-import { uploadTempFile } from '#/temp-file-upload.ts'
 import {
   decodeExitCode,
   decodeProcessName,
@@ -60,50 +57,15 @@ export const TerminalPane = defineComponent({
     let socket: WebSocket | null = null
     let fitFrame: number | null = null
     let disposed = false
-    const composerExpanded = ref(false)
-    const composerMode = ref<ComposerMode>('input')
-    const composerDraft = ref('')
-    const composerHistory = ref<string[]>([])
     const searchOpen = ref(false)
     const searchTerm = ref('')
     const searchInput = ref<HTMLInputElement | null>(null)
     let processName = 'shell'
-    const dragging = ref(false)
 
     const send = (message: Uint8Array<ArrayBuffer>): void => {
       if (socket?.readyState === WebSocket.OPEN) socket.send(message)
     }
 
-    const writeText = async (text: string): Promise<boolean> => {
-      if (!text || socket?.readyState !== WebSocket.OPEN) return false
-      send(encodeTerminalInput(text))
-      return true
-    }
-
-    const uploadDroppedFiles = async (files: File[]): Promise<void> => {
-      if (!files.length) return
-      composerExpanded.value = true
-      composerMode.value = 'input'
-      try {
-        const paths: string[] = []
-        for (const file of files) paths.push(await uploadTempFile(file))
-        const prefix = composerDraft.value && !/\s$/.test(composerDraft.value) ? `${composerDraft.value} ` : composerDraft.value
-        composerDraft.value = `${prefix}${paths.join(' ')}`
-      } catch (error) {
-        composerDraft.value = `${composerDraft.value}${composerDraft.value ? ' ' : ''}[upload failed: ${error instanceof Error ? error.message : 'unknown error'}]`
-      }
-    }
-
-    const sendVirtualKey = (key: VirtualKey): void => {
-      const applicationCursor = terminal?.modes.applicationCursorKeysMode ?? false
-      const cursorPrefix = applicationCursor ? '\x1bO' : '\x1b['
-      const values: Record<VirtualKey, string> = {
-        enter: '\r', backspace: '\x7f', tab: '\t', escape: '\x1b', 'clear-screen': '\x0c',
-        interrupt: '\x03', eof: '\x04', 'arrow-up': `${cursorPrefix}A`, 'arrow-down': `${cursorPrefix}B`,
-        'arrow-left': `${cursorPrefix}D`, 'arrow-right': `${cursorPrefix}C`,
-      }
-      send(encodeTerminalInput(values[key]))
-    }
 
     const fit = (): void => {
       if (disposed || !props.active || !terminal || !fitAddon || socket?.readyState !== WebSocket.OPEN) return
@@ -151,9 +113,6 @@ export const TerminalPane = defineComponent({
         event.preventDefault()
         searchOpen.value = true
         void nextTick(() => searchInput.value?.focus())
-      } else if (event.key === 'Enter') {
-        event.preventDefault()
-        composerExpanded.value = true
       }
     }, { capture: true })
 
@@ -226,11 +185,8 @@ export const TerminalPane = defineComponent({
     return () => (
       <section
         ref={frame}
-        class={['terminal-frame', dragging.value && 'terminal-frame--dragging']}
+        class="terminal-frame absolute inset-0 block bg-[var(--surface)] px-[6px] pb-[6px] pl-[10px] pt-2"
         aria-label={`Terminal ${props.sessionId}`}
-        onDragover={(event) => { event.preventDefault(); dragging.value = true }}
-        onDragleave={(event) => { if (event.currentTarget === event.target) dragging.value = false }}
-        onDrop={(event) => { event.preventDefault(); dragging.value = false; void uploadDroppedFiles(Array.from(event.dataTransfer?.files ?? [])) }}
       >
         <div ref={host} class="terminal-host" />
         {searchOpen.value ? (
@@ -260,29 +216,6 @@ export const TerminalPane = defineComponent({
             <button type="button" aria-label="Close search" onClick={closeSearch}>×</button>
           </div>
         ) : null}
-        <TerminalComposer
-          expanded={composerExpanded.value}
-          mode={composerMode.value}
-          draft={composerDraft.value}
-          historyEntries={composerHistory.value}
-          onVirtualKey={sendVirtualKey}
-          onCopyContent={async () => {
-            const selection = terminal?.getSelection() ?? ''
-            if (!selection) return
-            try { await navigator.clipboard.writeText(selection) } catch { /* clipboard permission is optional */ }
-          }}
-          onSendText={(text) => writeText(text)}
-          onSubmitText={async (text) => {
-            const accepted = await writeText(`${text}\r`)
-            if (accepted) composerHistory.value = [...composerHistory.value.slice(-49), text]
-            return accepted
-          }}
-          onOpen={() => { composerExpanded.value = true; return true }}
-          onClose={() => { composerExpanded.value = false; return true }}
-          onModeChange={(mode) => { composerMode.value = mode; return true }}
-          onDraftChange={(draft) => { composerDraft.value = draft; return true }}
-          onUploadFile={(file) => uploadTempFile(file)}
-        />
       </section>
     )
   },
