@@ -1,7 +1,8 @@
-export async function uploadTempFile(file: File, accessToken: string): Promise<string> {
+export async function uploadTempFile(file: File): Promise<string> {
   const response = await fetch('/api/temp-files', {
     method: 'POST',
-    headers: { 'X-Lin-Access-Token': accessToken, 'X-Lin-Filename': file.name },
+    credentials: 'same-origin',
+    headers: { 'X-Lin-Filename': file.name },
     body: file,
   })
   if (!response.ok) throw new Error((await response.text()).trim() || `Upload failed (${response.status})`)

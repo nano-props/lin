@@ -1,6 +1,6 @@
 import { Plus } from '@lucide/vue'
 import { useEventListener } from '@vueuse/core'
-import { computed, defineComponent, nextTick, ref } from 'vue'
+import { computed, defineComponent, nextTick, onMounted, ref } from 'vue'
 import type { PropType } from 'vue'
 import { TerminalPane } from './TerminalPane.tsx'
 import type { TerminalSessionState } from './TerminalPane.tsx'
@@ -13,12 +13,11 @@ interface TerminalTab {
   state: TerminalSessionState
 }
 
-const ACCESS_TOKEN_KEY = 'lin.access-token'
-
 export const App = defineComponent({
   name: 'App',
   setup() {
-    const accessToken = ref(readAccessToken())
+    const authenticated = ref(false)
+    const checkingAuth = ref(true)
     const tabs = ref<TerminalTab[]>([])
     const activeId = ref('')
     let nextId = 1
@@ -30,7 +29,7 @@ export const App = defineComponent({
     })
 
     const createTerminal = (): void => {
-      if (!accessToken.value) return
+      if (!authenticated.value) return
       const id = nextId++
       tabs.value.push({ id, title: `shell ${id}`, state: 'connecting' })
       activeId.value = String(id)
@@ -83,11 +82,27 @@ export const App = defineComponent({
       }
     })
 
-    if (accessToken.value) createTerminal()
+    onMounted(async () => {
+      const token = new URLSearchParams(location.search).get('token')?.trim()
+      if (token) history.replaceState(null, '', `${location.pathname}${location.hash}`)
+      try {
+        const response = token
+          ? await fetch('/api/auth', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'text/plain' }, body: token })
+          : await fetch('/api/auth/status', { credentials: 'same-origin' })
+        authenticated.value = response.ok
+      } finally {
+        checkingAuth.value = false
+        if (authenticated.value) createTerminal()
+      }
+    })
 
     return () => {
-      if (!accessToken.value) return <AccessRequired onUnlock={(value) => { accessToken.value = value; sessionStorage.setItem(ACCESS_TOKEN_KEY, value); createTerminal() }} />
-      const activeToken = accessToken.value
+      if (checkingAuth.value) return <main class="shell shell--locked" aria-label="lin web terminal" />
+      if (!authenticated.value) return <AccessRequired onUnlock={async (token) => {
+        const response = await fetch('/api/auth', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'text/plain' }, body: token })
+        if (!response.ok) return false
+        authenticated.value = true; createTerminal(); return true
+      }} />
       const connectionLabel = connectionState.value === 'online' ? 'local' : connectionState.value === 'connecting' ? 'linking' : 'offline'
 
       return (
@@ -155,7 +170,6 @@ export const App = defineComponent({
               >
                 <TerminalPane
                   sessionId={tab.id}
-                  accessToken={activeToken}
                   active={activeId.value === String(tab.id)}
                   onStateChange={(state) => updateTab(tab.id, { state })}
                   onTitleChange={(title) => updateTab(tab.id, { title })}
@@ -187,10 +201,12 @@ function handleTabKeydown(event: KeyboardEvent, id: number): void {
 const AccessRequired = defineComponent({
   name: 'AccessRequired',
   props: {
-    onUnlock: { type: Function as PropType<(token: string) => void>, required: true },
+    onUnlock: { type: Function as PropType<(token: string) => Promise<boolean>>, required: true },
   },
   setup(props) {
     const token = ref('')
+    const error = ref('')
+    const submitting = ref(false)
     return () => (
       <main class="shell shell--locked" aria-label="lin web terminal">
         <header class="topbar">
@@ -208,23 +224,16 @@ const AccessRequired = defineComponent({
           <span class="fatal__eyebrow">ACCESS REQUIRED</span>
           <h1>Connect to your local terminal.</h1>
           <p>Paste the access token printed by the lin server. It stays in this browser session.</p>
-          <form class="token-entry" onSubmit={(event) => { event.preventDefault(); const value = token.value.trim(); if (value) props.onUnlock(value) }}>
+          <form class="token-entry" onSubmit={(event) => { event.preventDefault(); const value = token.value.trim(); if (!value || submitting.value) return; submitting.value = true; error.value = ''; void props.onUnlock(value).then((ok) => { if (!ok) error.value = 'Invalid access token' }).catch(() => { error.value = 'Unable to connect to lin' }).finally(() => { submitting.value = false }) }}>
             <label for="access-token">Access token</label>
             <div class="token-entry__row">
               <input id="access-token" type="password" autocomplete="off" spellcheck={false} value={token.value} placeholder="Paste token…" onInput={(event) => { token.value = (event.currentTarget as HTMLInputElement).value }} />
-              <button type="submit" disabled={!token.value.trim()}>Unlock</button>
+              <button type="submit" disabled={!token.value.trim() || submitting.value}>{submitting.value ? 'Connecting…' : 'Unlock'}</button>
             </div>
+            {error.value ? <p class="token-entry__error" role="alert">{error.value}</p> : null}
           </form>
         </section>
       </main>
     )
   },
 })
-
-function readAccessToken(): string | null {
-  const queryToken = new URLSearchParams(location.search).get('token')
-  if (queryToken) sessionStorage.setItem(ACCESS_TOKEN_KEY, queryToken)
-  const token = queryToken ?? sessionStorage.getItem(ACCESS_TOKEN_KEY)
-  if (queryToken) history.replaceState(null, '', `${location.pathname}${location.hash}`)
-  return token
-}

@@ -643,6 +643,8 @@ button {
 
 .token-entry button:disabled { cursor: not-allowed; opacity: 0.4; }
 
+.token-entry__error { margin-top: 10px !important; color: var(--danger) !important; font-size: 12px !important; }
+
 @media (max-width: 480px) {
   .token-entry__row { flex-direction: column; }
   .token-entry button { width: 100%; }

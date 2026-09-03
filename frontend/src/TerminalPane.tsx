@@ -45,7 +45,6 @@ export const TerminalPane = defineComponent({
   name: 'TerminalPane',
   props: {
     sessionId: { type: Number, required: true },
-    accessToken: { type: String, required: true },
     active: { type: Boolean, required: true },
     onStateChange: Function as PropType<(state: TerminalSessionState) => void>,
     onTitleChange: Function as PropType<(title: string) => void>,
@@ -84,7 +83,7 @@ export const TerminalPane = defineComponent({
       composerMode.value = 'input'
       try {
         const paths: string[] = []
-        for (const file of files) paths.push(await uploadTempFile(file, props.accessToken))
+        for (const file of files) paths.push(await uploadTempFile(file))
         const prefix = composerDraft.value && !/\s$/.test(composerDraft.value) ? `${composerDraft.value} ` : composerDraft.value
         composerDraft.value = `${prefix}${paths.join(' ')}`
       } catch (error) {
@@ -176,7 +175,7 @@ export const TerminalPane = defineComponent({
       terminal.loadAddon(searchAddon)
       terminal.open(host.value)
 
-      socket = new WebSocket(webSocketUrl(props.accessToken))
+      socket = new WebSocket(webSocketUrl())
       socket.binaryType = 'arraybuffer'
       terminal.onData((data) => send(encodeTerminalInput(data)))
       terminal.onBinary((data) => send(encodeTerminalBinaryInput(data)))
@@ -276,14 +275,14 @@ export const TerminalPane = defineComponent({
           onClose={() => { composerExpanded.value = false; return true }}
           onModeChange={(mode) => { composerMode.value = mode; return true }}
           onDraftChange={(draft) => { composerDraft.value = draft; return true }}
-          onUploadFile={(file) => uploadTempFile(file, props.accessToken)}
+          onUploadFile={(file) => uploadTempFile(file)}
         />
       </section>
     )
   },
 })
 
-function webSocketUrl(accessToken: string): string {
+function webSocketUrl(): string {
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${protocol}//${location.host}/ws?token=${encodeURIComponent(accessToken)}`
+  return `${protocol}//${location.host}/ws`
 }

@@ -20,6 +20,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class LinServer implements AutoCloseable {
+    private static final String AUTH_COOKIE = "lin_access";
     private final ServerConfig config;
     private final ServerSocket serverSocket = new ServerSocket();
     private final Set<PtySession> sessions = ConcurrentHashMap.newKeySet();
@@ -70,12 +71,16 @@ public final class LinServer implements AutoCloseable {
             OutputStream output = socket.getOutputStream();
             HttpRequest request = HttpRequest.read(input);
             URI target = parseTarget(request.target());
-            if ("/ws".equals(target.getPath())) {
+            if ("/api/auth".equals(target.getPath())) {
+                authenticate(output, input, request);
+            } else if ("/api/auth/status".equals(target.getPath())) {
+                authStatus(output, request);
+            } else if ("/ws".equals(target.getPath())) {
                 upgradeWebSocket(socket, input, output, request, target);
             } else if ("/api/temp-files".equals(target.getPath())) {
                 uploadTempFile(output, input, request);
             } else {
-                serveResource(output, request, target.getPath());
+                serveResource(output, request, target);
             }
         } catch (Exception error) {
             if (!closed.get() && !(error instanceof IOException)) {
@@ -86,7 +91,7 @@ public final class LinServer implements AutoCloseable {
 
     private void uploadTempFile(OutputStream output, InputStream input, HttpRequest request) throws IOException {
         if (!"POST".equals(request.method())) { writeError(output, 405, "Method not allowed"); return; }
-        if (!constantTimeEquals(config.token(), request.header("x-lin-access-token"))) { writeError(output, 401, "Invalid access token"); return; }
+        if (!authenticated(request)) { writeError(output, 401, "Authentication required"); return; }
         if (!validOrigin(request.header("origin"), request.header("host"))) { writeError(output, 403, "Invalid origin"); return; }
         byte[] body;
         try { body = request.readBody(input, TempFileStore.MAX_FILE_BYTES); }
@@ -110,11 +115,7 @@ public final class LinServer implements AutoCloseable {
             writeError(output, 400, "WebSocket upgrade required");
             return;
         }
-        String token = queryParameter(target.getRawQuery(), "token");
-        if (!constantTimeEquals(config.token(), token)) {
-            writeError(output, 401, "Invalid access token");
-            return;
-        }
+        if (!authenticated(request)) { writeError(output, 401, "Authentication required"); return; }
         if (!validOrigin(request.header("origin"), request.header("host"))) {
             writeError(output, 403, "Invalid WebSocket origin");
             return;
@@ -142,7 +143,44 @@ public final class LinServer implements AutoCloseable {
         return origin.equals("http://" + host) || origin.equals("https://" + host);
     }
 
-    private void serveResource(OutputStream output, HttpRequest request, String path) throws IOException {
+    private void authenticate(OutputStream output, InputStream input, HttpRequest request) throws IOException {
+        if (!"POST".equals(request.method()) || !validOrigin(request.header("origin"), request.header("host"))) {
+            writeError(output, 403, "Invalid authentication request"); return;
+        }
+        byte[] body = request.readBody(input, 4096);
+        if (!constantTimeEquals(config.token(), new String(body, StandardCharsets.UTF_8).trim())) {
+            writeError(output, 401, "Invalid access token"); return;
+        }
+        writeResponse(output, 204, "No Content", "text/plain; charset=utf-8", new byte[0], false, authCookie(request));
+    }
+
+    private void authStatus(OutputStream output, HttpRequest request) throws IOException {
+        if (!authenticated(request)) { writeError(output, 401, "Authentication required"); return; }
+        writeResponse(output, 204, "No Content", "text/plain; charset=utf-8", new byte[0], false);
+    }
+
+    private boolean authenticated(HttpRequest request) {
+        return constantTimeEquals(config.token(), cookie(request.header("cookie"), AUTH_COOKIE));
+    }
+
+    private static String cookie(String header, String name) {
+        if (header == null) return null;
+        for (String item : header.split(";")) {
+            String[] pair = item.trim().split("=", 2);
+            if (pair.length == 2 && pair[0].equals(name)) return pair[1];
+        }
+        return null;
+    }
+
+    private String authCookie(HttpRequest request) {
+        String forwarded = request.header("x-forwarded-proto");
+        String origin = request.header("origin");
+        boolean secure = "https".equalsIgnoreCase(forwarded) || (origin != null && origin.startsWith("https://"));
+        return AUTH_COOKIE + "=" + config.token() + (secure ? "; Secure" : "") + "; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800";
+    }
+
+    private void serveResource(OutputStream output, HttpRequest request, URI target) throws IOException {
+        String path = target.getPath();
         if (!"GET".equals(request.method()) && !"HEAD".equals(request.method())) {
             writeError(output, 405, "Method not allowed");
             return;
@@ -164,7 +202,7 @@ public final class LinServer implements AutoCloseable {
             }
             body = resource.readAllBytes();
         }
-        writeResponse(output, 200, "OK", contentType(resourcePath), body, "HEAD".equals(request.method()));
+        writeResponse(output, 200, "OK", contentType(resourcePath), body, "HEAD".equals(request.method()), null);
     }
 
     private static URI parseTarget(String target) throws IOException {
@@ -222,6 +260,18 @@ public final class LinServer implements AutoCloseable {
         byte[] body,
         boolean headOnly
     ) throws IOException {
+        writeResponse(output, status, reason, contentType, body, headOnly, null);
+    }
+
+    private static void writeResponse(
+        OutputStream output,
+        int status,
+        String reason,
+        String contentType,
+        byte[] body,
+        boolean headOnly,
+        String setCookie
+    ) throws IOException {
         String headers = "HTTP/1.1 " + status + " " + reason + "\r\n"
             + "Content-Type: " + contentType + "\r\n"
             + "Content-Length: " + body.length + "\r\n"
@@ -232,6 +282,7 @@ public final class LinServer implements AutoCloseable {
             + "X-Content-Type-Options: nosniff\r\n"
             + "X-Frame-Options: DENY\r\n"
             + "Cross-Origin-Resource-Policy: same-origin\r\n"
+            + (setCookie == null ? "" : "Set-Cookie: " + setCookie + "\r\n")
             + "Connection: close\r\n\r\n";
         output.write(headers.getBytes(StandardCharsets.US_ASCII));
         if (!headOnly) output.write(body);
