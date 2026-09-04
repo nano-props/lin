@@ -13,6 +13,7 @@ final class HttpResponse {
 
     static void write(OutputStream output, int status, String reason, String contentType,
                       byte[] body, boolean headOnly, String setCookie) throws IOException {
+        // Keep HTTP header line endings explicit: the wire format requires CRLF, not text-block newlines.
         var headers = "HTTP/1.1 " + status + " " + reason + "\r\n"
             + "Content-Type: " + contentType + "\r\n"
             + "Content-Length: " + body.length + "\r\n"
