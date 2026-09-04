@@ -8,13 +8,15 @@ type ToolbarClosableTabContainerProps = Omit<HTMLAttributes, 'class'> & DataAttr
 type ToolbarClosableTabButtonProps = Omit<ButtonHTMLAttributes, 'class'> & DataAttributes & { tabIndex?: number }
 export type ToolbarTabCloseEvent = MouseEvent
 
-export type ToolbarTabClose = {
-  kind: 'action'
-  label: string
-  visible: boolean
-  disabled?: boolean
-  onClose: (event: ToolbarTabCloseEvent) => void
-} | { kind: 'placeholder' }
+export type ToolbarTabClose =
+  | {
+      kind: 'action'
+      label: string
+      visible: boolean
+      disabled?: boolean
+      onClose: (event: ToolbarTabCloseEvent) => void
+    }
+  | { kind: 'placeholder' }
 
 interface ToolbarClosableTabProps {
   containerRef?: ElementRef<HTMLDivElement>
@@ -42,7 +44,11 @@ export const ToolbarClosableTab: FunctionalComponent<ToolbarClosableTabProps> = 
       class={['goblin-tab-button', props.buttonClass]}
     >
       {slots.default?.()}
-      {props.close?.kind === 'placeholder' ? <span aria-hidden="true" class="goblin-tab-close placeholder"><X size={14} /></span> : null}
+      {props.close?.kind === 'placeholder' ? (
+        <span aria-hidden="true" class="goblin-tab-close placeholder">
+          <X size={14} />
+        </span>
+      ) : null}
       {props.close?.kind === 'action' ? (
         <span
           aria-hidden="true"

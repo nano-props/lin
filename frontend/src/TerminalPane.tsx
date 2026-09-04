@@ -66,7 +66,6 @@ export const TerminalPane = defineComponent({
       if (socket?.readyState === WebSocket.OPEN) socket.send(message)
     }
 
-
     const fit = (): void => {
       if (disposed || !props.active || !terminal || !fitAddon || socket?.readyState !== WebSocket.OPEN) return
       try {
@@ -107,14 +106,19 @@ export const TerminalPane = defineComponent({
       },
     )
 
-    useEventListener(window, 'keydown', (event) => {
-      if (!props.active || !(event.ctrlKey || event.metaKey) || !event.shiftKey || event.altKey) return
-      if (event.key.toLowerCase() === 'f') {
-        event.preventDefault()
-        searchOpen.value = true
-        void nextTick(() => searchInput.value?.focus())
-      }
-    }, { capture: true })
+    useEventListener(
+      window,
+      'keydown',
+      (event) => {
+        if (!props.active || !(event.ctrlKey || event.metaKey) || !event.shiftKey || event.altKey) return
+        if (event.key.toLowerCase() === 'f') {
+          event.preventDefault()
+          searchOpen.value = true
+          void nextTick(() => searchInput.value?.focus())
+        }
+      },
+      { capture: true },
+    )
 
     onMounted(() => {
       if (!host.value) throw new Error('terminal host missing')
@@ -154,10 +158,11 @@ export const TerminalPane = defineComponent({
         if (!(event.data instanceof ArrayBuffer) || !terminal) return
         const bytes = new Uint8Array(event.data)
         const exitCode = decodeExitCode(bytes)
+        const metadata = decodeProcessName(bytes)
         if (exitCode != null) {
           terminal.write(`\r\n\x1b[38;2;104;112;100m[process exited ${exitCode}]\x1b[0m\r\n`)
-        } else if (decodeProcessName(bytes) != null) {
-          processName = decodeProcessName(bytes) ?? processName
+        } else if (metadata != null) {
+          processName = metadata
           props.onTitleChange?.(compactTerminalTitle(processName))
         } else {
           const output = decodeTerminalOutput(bytes)
@@ -204,16 +209,33 @@ export const TerminalPane = defineComponent({
               onKeydown={(event) => {
                 if (event.key === 'Enter') {
                   event.preventDefault()
-                  if (searchTerm.value) event.shiftKey ? searchAddon?.findPrevious(searchTerm.value) : searchAddon?.findNext(searchTerm.value)
+                  if (searchTerm.value)
+                    event.shiftKey
+                      ? searchAddon?.findPrevious(searchTerm.value)
+                      : searchAddon?.findNext(searchTerm.value)
                 } else if (event.key === 'Escape') {
                   event.preventDefault()
                   closeSearch()
                 }
               }}
             />
-            <button type="button" aria-label="Previous match" onClick={() => searchTerm.value && searchAddon?.findPrevious(searchTerm.value)}>↑</button>
-            <button type="button" aria-label="Next match" onClick={() => searchTerm.value && searchAddon?.findNext(searchTerm.value)}>↓</button>
-            <button type="button" aria-label="Close search" onClick={closeSearch}>×</button>
+            <button
+              type="button"
+              aria-label="Previous match"
+              onClick={() => searchTerm.value && searchAddon?.findPrevious(searchTerm.value)}
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              aria-label="Next match"
+              onClick={() => searchTerm.value && searchAddon?.findNext(searchTerm.value)}
+            >
+              ↓
+            </button>
+            <button type="button" aria-label="Close search" onClick={closeSearch}>
+              ×
+            </button>
           </div>
         ) : null}
       </section>

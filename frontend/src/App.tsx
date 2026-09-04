@@ -19,6 +19,7 @@ export const App = defineComponent({
   setup() {
     const authenticated = ref(false)
     const checkingAuth = ref(true)
+    const authError = ref('')
     const tabs = ref<TerminalTab[]>([])
     const activeId = ref('')
     let nextId = 1
@@ -88,9 +89,16 @@ export const App = defineComponent({
       if (token) history.replaceState(null, '', `${location.pathname}${location.hash}`)
       try {
         const response = token
-          ? await fetch('/api/auth', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'text/plain' }, body: token })
+          ? await fetch('/api/auth', {
+              method: 'POST',
+              credentials: 'same-origin',
+              headers: { 'Content-Type': 'text/plain' },
+              body: token,
+            })
           : await fetch('/api/auth/status', { credentials: 'same-origin' })
         authenticated.value = response.ok
+      } catch {
+        authError.value = 'Unable to connect to lin'
       } finally {
         checkingAuth.value = false
         if (authenticated.value) createTerminal()
@@ -99,16 +107,31 @@ export const App = defineComponent({
 
     return () => {
       if (checkingAuth.value) return <main class="shell shell--locked" aria-label="lin web terminal" />
-      if (!authenticated.value) return <AccessRequired onUnlock={async (token) => {
-        const response = await fetch('/api/auth', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'text/plain' }, body: token })
-        if (!response.ok) return false
-        authenticated.value = true; createTerminal(); return true
-      }} />
+      if (!authenticated.value)
+        return (
+          <AccessRequired
+            initialError={authError.value}
+            onUnlock={async (token) => {
+              const response = await fetch('/api/auth', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'text/plain' },
+                body: token,
+              })
+              if (!response.ok) return false
+              authenticated.value = true
+              createTerminal()
+              return true
+            }}
+          />
+        )
       return (
         <main class="shell" aria-label="lin web terminal">
           <header class="topbar">
             <div class="identity" aria-label="lin">
-              <span class="identity__mark" aria-hidden="true">λ</span>
+              <span class="identity__mark" aria-hidden="true">
+                λ
+              </span>
               <span class="identity__name">lin</span>
             </div>
             <div class="tabs" role="tablist" aria-label="Terminal sessions">
@@ -127,7 +150,12 @@ export const App = defineComponent({
                     tabIndex: activeId.value === String(tab.id) ? 0 : -1,
                     onClick: () => {
                       activeId.value = String(tab.id)
-                      requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-terminal-tab="${tab.id}"] .terminal-host`)?.querySelector<HTMLElement>('.xterm-helper-textarea')?.focus())
+                      requestAnimationFrame(() =>
+                        document
+                          .querySelector<HTMLElement>(`[data-terminal-tab="${tab.id}"] .terminal-host`)
+                          ?.querySelector<HTMLElement>('.xterm-helper-textarea')
+                          ?.focus(),
+                      )
                     },
                     onKeydown: (event) => handleTabKeydown(event, tab.id),
                   }}
@@ -189,7 +217,12 @@ function handleTabKeydown(event: KeyboardEvent, id: number): void {
   }
   if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight' && event.key !== 'Home' && event.key !== 'End') return
   event.preventDefault()
-  const targetIndex = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length
+  const targetIndex =
+    event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? tabs.length - 1
+        : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length
   tabs[targetIndex]?.querySelector<HTMLButtonElement>('[role="tab"]')?.focus()
   tabs[targetIndex]?.querySelector<HTMLButtonElement>('[role="tab"]')?.click()
 }
@@ -198,16 +231,19 @@ const AccessRequired = defineComponent({
   name: 'AccessRequired',
   props: {
     onUnlock: { type: Function as PropType<(token: string) => Promise<boolean>>, required: true },
+    initialError: { type: String, default: '' },
   },
   setup(props) {
     const token = ref('')
-    const error = ref('')
+    const error = ref(props.initialError)
     const submitting = ref(false)
     return () => (
       <main class="shell shell--locked" aria-label="lin web terminal">
         <header class="topbar">
           <div class="identity" aria-label="lin">
-            <span class="identity__mark" aria-hidden="true">λ</span>
+            <span class="identity__mark" aria-hidden="true">
+              λ
+            </span>
             <span class="identity__name">lin</span>
           </div>
           <div class="tabs" />
@@ -220,13 +256,49 @@ const AccessRequired = defineComponent({
           <span class="fatal__eyebrow">ACCESS REQUIRED</span>
           <h1>Connect to your local terminal.</h1>
           <p>Paste the access token printed by the lin server. It stays in this browser session.</p>
-          <form class="token-entry" onSubmit={(event) => { event.preventDefault(); const value = token.value.trim(); if (!value || submitting.value) return; submitting.value = true; error.value = ''; void props.onUnlock(value).then((ok) => { if (!ok) error.value = 'Invalid access token' }).catch(() => { error.value = 'Unable to connect to lin' }).finally(() => { submitting.value = false }) }}>
+          <form
+            class="token-entry"
+            onSubmit={(event) => {
+              event.preventDefault()
+              const value = token.value.trim()
+              if (!value || submitting.value) return
+              submitting.value = true
+              error.value = ''
+              void props
+                .onUnlock(value)
+                .then((ok) => {
+                  if (!ok) error.value = 'Invalid access token'
+                })
+                .catch(() => {
+                  error.value = 'Unable to connect to lin'
+                })
+                .finally(() => {
+                  submitting.value = false
+                })
+            }}
+          >
             <label for="access-token">Access token</label>
             <div class="token-entry__row">
-              <input id="access-token" type="password" autocomplete="off" spellcheck={false} value={token.value} placeholder="Paste token…" onInput={(event) => { token.value = (event.currentTarget as HTMLInputElement).value }} />
-              <button type="submit" disabled={!token.value.trim() || submitting.value}>{submitting.value ? 'Connecting…' : 'Unlock'}</button>
+              <input
+                id="access-token"
+                type="password"
+                autocomplete="off"
+                spellcheck={false}
+                value={token.value}
+                placeholder="Paste token…"
+                onInput={(event) => {
+                  token.value = (event.currentTarget as HTMLInputElement).value
+                }}
+              />
+              <button type="submit" disabled={!token.value.trim() || submitting.value}>
+                {submitting.value ? 'Connecting…' : 'Unlock'}
+              </button>
             </div>
-            {error.value ? <p class="token-entry__error" role="alert">{error.value}</p> : null}
+            {error.value ? (
+              <p class="token-entry__error" role="alert">
+                {error.value}
+              </p>
+            ) : null}
           </form>
         </section>
       </main>

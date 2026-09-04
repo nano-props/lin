@@ -43,6 +43,10 @@ The generated executable does not require a JVM. It embeds `liblinpty.so` and ex
 lin [--host ADDRESS] [--port PORT] [--token TOKEN] [--allow-remote]
 ```
 
+The same settings can be supplied through `LIN_HOST`, `LIN_PORT`, `LIN_TOKEN`, and
+`LIN_ALLOW_REMOTE` (`true`, `1`, `yes`, or `on` enable the last one). Command-line
+arguments take precedence over environment variables.
+
 The default address is `127.0.0.1:7681`. Binding a non-loopback address requires `--allow-remote`; access-token protection remains enabled. TLS and a trusted reverse proxy are strongly recommended for any remote exposure.
 When using an HTTPS reverse proxy, forward `X-Forwarded-Proto: https` so lin marks the authentication cookie `Secure`.
 

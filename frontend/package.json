@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit && vite build",
-    "dev": "vite"
+    "dev": "vite",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@lucide/vue": "1.39.0",
@@ -19,6 +21,7 @@
   "devDependencies": {
     "@tailwindcss/vite": "4.3.3",
     "@vitejs/plugin-vue-jsx": "5.1.6",
+    "prettier": "^3.9.6",
     "tailwindcss": "4.3.3",
     "typescript": "7.0.2",
     "vite": "8.2.2"

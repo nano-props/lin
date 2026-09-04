@@ -13,6 +13,7 @@ public final class Main {
         } catch (IllegalArgumentException error) {
             System.err.println("lin: " + error.getMessage());
             System.err.println("usage: lin [--host ADDRESS] [--port PORT] [--token TOKEN] [--allow-remote]");
+            System.err.println("       env: LIN_HOST LIN_PORT LIN_TOKEN LIN_ALLOW_REMOTE");
             System.exit(2);
             return;
         }

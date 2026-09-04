@@ -7,13 +7,23 @@ export const ConnectionStatus = defineComponent({
   props: { state: { type: String as PropType<TerminalSessionState>, required: true } },
   setup(props) {
     return () => {
-      const label = props.state === 'online'
-        ? (isLoopbackHost(location.hostname) ? 'local' : 'remote')
-        : props.state === 'connecting' ? 'linking' : 'offline'
-      return <div class={['connection', props.state === 'offline' && 'connection--offline']} title={`${label} token-protected connection`}>
-        <span class="connection__dot" />
-        <span>{label}</span>
-      </div>
+      const label =
+        props.state === 'online'
+          ? isLoopbackHost(location.hostname)
+            ? 'local'
+            : 'remote'
+          : props.state === 'connecting'
+            ? 'linking'
+            : 'offline'
+      return (
+        <div
+          class={['connection', props.state === 'offline' && 'connection--offline']}
+          title={`${label} token-protected connection`}
+        >
+          <span class="connection__dot" />
+          <span>{label}</span>
+        </div>
+      )
     }
   },
 })

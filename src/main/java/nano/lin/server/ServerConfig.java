@@ -4,24 +4,32 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.Locale;
+import java.util.Map;
 
 public record ServerConfig(InetAddress address, int port, String token) {
     public static ServerConfig parse(String[] args) {
-        var host = "127.0.0.1";
-        var port = 7681;
-        String token = null;
-        var allowRemote = false;
+        return parse(args, System.getenv());
+    }
+
+    static ServerConfig parse(String[] args, Map<String, String> environment) {
+        var host = environment.getOrDefault("LIN_HOST", "127.0.0.1");
+        var portValue = environment.getOrDefault("LIN_PORT", "7681");
+        String token = environment.get("LIN_TOKEN");
+        var allowRemoteValue = environment.getOrDefault("LIN_ALLOW_REMOTE", "false");
 
         for (var index = 0; index < args.length; index++) {
             switch (args[index]) {
                 case "--host" -> host = requireValue(args, ++index, "--host");
-                case "--port" -> port = parsePort(requireValue(args, ++index, "--port"));
+                case "--port" -> portValue = requireValue(args, ++index, "--port");
                 case "--token" -> token = requireValue(args, ++index, "--token");
-                case "--allow-remote" -> allowRemote = true;
+                case "--allow-remote" -> allowRemoteValue = "true";
                 default -> throw new IllegalArgumentException("unknown option: " + args[index]);
             }
         }
 
+        var port = parsePort(portValue);
+        var allowRemote = parseBoolean(allowRemoteValue, "LIN_ALLOW_REMOTE");
         InetAddress address;
         try {
             address = InetAddress.getByName(host);
@@ -51,6 +59,14 @@ public record ServerConfig(InetAddress address, int port, String token) {
         } catch (NumberFormatException error) {
             throw new IllegalArgumentException("invalid port: " + value);
         }
+    }
+
+    private static boolean parseBoolean(String value, String name) {
+        return switch (value.trim().toLowerCase(Locale.ROOT)) {
+            case "true", "1", "yes", "on" -> true;
+            case "false", "0", "no", "off", "" -> false;
+            default -> throw new IllegalArgumentException("invalid boolean for " + name + ": " + value);
+        };
     }
 
     private static String randomToken() {

@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 :root {
   color: #d9ddd4;
@@ -45,9 +45,7 @@ button {
   width: 100%;
   height: 100%;
   grid-template-rows: 42px minmax(0, 1fr);
-  background:
-    radial-gradient(circle at 10% -20%, #2d3924 0, transparent 34%),
-    var(--surface);
+  background: radial-gradient(circle at 10% -20%, #2d3924 0, transparent 34%), var(--surface);
 }
 
 .shell::after {
@@ -128,7 +126,9 @@ button {
   color: var(--muted);
   cursor: default;
   outline: none;
-  transition: background 120ms ease, color 120ms ease;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
 }
 
 .tab::after {
@@ -141,7 +141,9 @@ button {
   content: '';
   opacity: 0;
   transform: scaleX(0.6);
-  transition: opacity 140ms ease, transform 180ms ease;
+  transition:
+    opacity 140ms ease,
+    transform 180ms ease;
 }
 
 .tab:hover {
@@ -242,7 +244,9 @@ button {
   color: var(--muted);
   opacity: 0;
   pointer-events: none;
-  transition: background 100ms ease, opacity 100ms ease;
+  transition:
+    background 100ms ease,
+    opacity 100ms ease;
 }
 
 .goblin-tab-close.visible {
@@ -472,7 +476,9 @@ button {
   outline: none;
 }
 
-.token-entry input:focus { border-color: var(--acid); }
+.token-entry input:focus {
+  border-color: var(--acid);
+}
 
 .token-entry button {
   padding: 0 16px;
@@ -480,13 +486,24 @@ button {
   cursor: pointer;
 }
 
-.token-entry button:disabled { cursor: not-allowed; opacity: 0.4; }
+.token-entry button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
 
-.token-entry__error { margin-top: 10px !important; color: var(--danger) !important; font-size: 12px !important; }
+.token-entry__error {
+  margin-top: 10px !important;
+  color: var(--danger) !important;
+  font-size: 12px !important;
+}
 
 @media (max-width: 480px) {
-  .token-entry__row { flex-direction: column; }
-  .token-entry button { width: 100%; }
+  .token-entry__row {
+    flex-direction: column;
+  }
+  .token-entry button {
+    width: 100%;
+  }
 }
 
 .tip {
