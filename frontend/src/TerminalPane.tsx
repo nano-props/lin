@@ -15,6 +15,7 @@ import {
 import { compactTerminalTitle } from '#/terminal-title.ts'
 
 export type TerminalSessionState = 'connecting' | 'online' | 'offline'
+export type ThemeMode = 'auto' | 'light' | 'dark'
 
 const terminalTheme = {
   background: '#10120f',
@@ -40,11 +41,36 @@ const terminalTheme = {
   brightWhite: '#f0f3ed',
 }
 
+const lightTerminalTheme = {
+  background: '#f3f5ef',
+  foreground: '#273025',
+  cursor: '#52752e',
+  cursorAccent: '#f3f5ef',
+  selectionBackground: '#9aae8055',
+  black: '#273025',
+  red: '#b53d38',
+  green: '#477c2a',
+  yellow: '#8b6b16',
+  blue: '#32689a',
+  magenta: '#87509c',
+  cyan: '#287d76',
+  white: '#e8ece3',
+  brightBlack: '#667260',
+  brightRed: '#c9514a',
+  brightGreen: '#5c9637',
+  brightYellow: '#a78320',
+  brightBlue: '#4c83b8',
+  brightMagenta: '#a06bb5',
+  brightCyan: '#3b9990',
+  brightWhite: '#ffffff',
+}
+
 export const TerminalPane = defineComponent({
   name: 'TerminalPane',
   props: {
     sessionId: { type: Number, required: true },
     active: { type: Boolean, required: true },
+    theme: { type: String as PropType<ThemeMode>, required: true },
     onStateChange: Function as PropType<(state: TerminalSessionState) => void>,
     onTitleChange: Function as PropType<(title: string) => void>,
   },
@@ -133,7 +159,7 @@ export const TerminalPane = defineComponent({
         rescaleOverlappingGlyphs: true,
         scrollback: 10_000,
         scrollOnUserInput: true,
-        theme: terminalTheme,
+        theme: resolvedTerminalTheme(props.theme),
       })
       fitAddon = new FitAddon()
       terminal.loadAddon(fitAddon)
@@ -174,6 +200,15 @@ export const TerminalPane = defineComponent({
       })
       socket.addEventListener('error', () => props.onStateChange?.('offline'))
       if (props.active) focus()
+    })
+    watch(
+      () => props.theme,
+      (mode) => {
+        if (terminal) terminal.options.theme = resolvedTerminalTheme(mode)
+      },
+    )
+    useEventListener(window.matchMedia('(prefers-color-scheme: light)'), 'change', () => {
+      if (props.theme === 'auto' && terminal) terminal.options.theme = resolvedTerminalTheme('auto')
     })
 
     onBeforeUnmount(() => {
@@ -246,4 +281,10 @@ export const TerminalPane = defineComponent({
 function webSocketUrl(): string {
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
   return `${protocol}//${location.host}/ws`
+}
+
+function resolvedTerminalTheme(mode: ThemeMode) {
+  return mode === 'light' || (mode === 'auto' && window.matchMedia('(prefers-color-scheme: light)').matches)
+    ? lightTerminalTheme
+    : terminalTheme
 }

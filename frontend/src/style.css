@@ -16,6 +16,50 @@
   --acid: #c6f36b;
   --acid-soft: #c6f36b1f;
   --danger: #ef746f;
+  --chrome: #0d0f0cde;
+  --text-strong: #eef2e9;
+  --overlay: #171a16f2;
+  --scanline: #ffffff05;
+}
+
+:root[data-theme='light'] {
+  color: #273025;
+  background: #e8ece3;
+  --surface: #f3f5ef;
+  --surface-raised: #e8ece3;
+  --surface-hover: #dce4d5;
+  --line: #cbd4c3;
+  --line-strong: #aebba4;
+  --text: #273025;
+  --muted: #697765;
+  --acid: #52752e;
+  --acid-soft: #52752e22;
+  --danger: #b53d38;
+  --chrome: #f3f5efde;
+  --text-strong: #273025;
+  --overlay: #ffffffee;
+  --scanline: #2730250d;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    color: #273025;
+    background: #e8ece3;
+    --surface: #f3f5ef;
+    --surface-raised: #e8ece3;
+    --surface-hover: #dce4d5;
+    --line: #cbd4c3;
+    --line-strong: #aebba4;
+    --text: #273025;
+    --muted: #697765;
+    --acid: #52752e;
+    --acid-soft: #52752e22;
+    --danger: #b53d38;
+    --chrome: #f3f5efde;
+    --text-strong: #273025;
+    --overlay: #ffffffee;
+    --scanline: #2730250d;
+  }
 }
 
 * {
@@ -45,14 +89,22 @@ button {
   width: 100%;
   height: 100%;
   grid-template-rows: 42px minmax(0, 1fr);
-  background: radial-gradient(circle at 10% -20%, #2d3924 0, transparent 34%), var(--surface);
+  background:
+    radial-gradient(circle at 10% -20%, color-mix(in srgb, var(--acid) 18%, transparent) 0, transparent 34%),
+    var(--surface);
 }
 
 .shell::after {
   position: absolute;
   inset: 42px 0 0;
   z-index: 5;
-  background-image: repeating-linear-gradient(0deg, #ffffff05 0, #ffffff05 1px, transparent 1px, transparent 4px);
+  background-image: repeating-linear-gradient(
+    0deg,
+    var(--scanline) 0,
+    var(--scanline) 1px,
+    transparent 1px,
+    transparent 4px
+  );
   content: '';
   pointer-events: none;
   opacity: 0.18;
@@ -65,7 +117,7 @@ button {
   min-width: 0;
   align-items: stretch;
   border-bottom: 1px solid var(--line);
-  background: #0d0f0cde;
+  background: var(--chrome);
   backdrop-filter: blur(16px);
   user-select: none;
 }
@@ -93,7 +145,7 @@ button {
 }
 
 .identity__name {
-  color: #eef2e9;
+  color: var(--text-strong);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -374,7 +426,7 @@ button {
   padding: 4px;
   border: 1px solid var(--line-strong);
   border-radius: 6px;
-  background: #171a16f2;
+  background: var(--overlay);
   box-shadow: 0 8px 24px #0008;
 }
 
@@ -425,7 +477,7 @@ button {
 .fatal h1 {
   max-width: 600px;
   margin: 18px 0 12px;
-  color: #eef2e9;
+  color: var(--text-strong);
   font-size: clamp(26px, 5vw, 54px);
   font-weight: 500;
   letter-spacing: -0.05em;
@@ -512,7 +564,7 @@ button {
   border: 1px solid var(--line-strong);
   border-radius: 4px;
   padding: 6px 8px;
-  background: #181b17f5;
+  background: var(--overlay);
   color: var(--text);
   box-shadow: 0 8px 24px #0008;
   font-size: 10px;
