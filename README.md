@@ -1,32 +1,18 @@
 # lin
 
-A small, local-first web terminal distributed as one Linux executable.
+`lin` is a local-first web terminal distributed as one Linux executable. It serves a Vue/xterm.js interface and starts one login-shell-backed PTY per browser tab.
 
-`lin` serves a clipped Goblin-style Vue 3 + TSX interface: its toolbar tab and tooltip primitives are migrated from Goblin, with Reka UI, VueUse, Lucide, and xterm.js. It opens one PTY-backed login shell per browser tab and starts every shell in the current user's home directory. The server is Java 25; Linux PTY calls use the Foreign Function & Memory API and a tiny embedded C shim. GraalVM Native Image packages the server, web assets, and shim into one executable.
+## Requirements
 
-## Features
+Linux x86_64, GraalVM for JDK 25, Bun 1.4+, GCC, and Linux PTY headers (`libc6-dev`).
 
-- Multiple independent terminal tabs
-- New/close/switch shortcuts (`Ctrl/⌘ T`, `Ctrl/⌘ W`, `Ctrl/⌘ 1…9`)
-- Terminal search (`Ctrl/⌘ Shift+F`), resize, scrollback, ANSI colors, and OSC title updates
-- Login shell rooted at `$HOME`
-- Loopback-only binding and a random access token by default
-- Local token entry screen when opened without a tokenized URL
-- WebSocket token and same-origin checks
-- HttpOnly/SameSite cookie authentication (Secure is enabled for HTTPS requests)
-- Single-file Linux x86_64 distribution
-
-## Run from source
-
-Requirements: GraalVM for JDK 25, Bun 1.4+, GCC, and Linux PTY headers (`libc6-dev`).
+## Run
 
 ```bash
 ./gradlew run
 ```
 
-Open the tokenized URL printed by the process.
-
-The frontend dependency install and production build stay in Bun and shell scripts; Gradle only invokes that build and embeds the resulting static assets.
+Open the tokenized URL printed by `lin`.
 
 ## Build
 
@@ -35,21 +21,25 @@ The frontend dependency install and production build stay in Bun and shell scrip
 ./build/native/nativeCompile/lin
 ```
 
-The generated executable does not require a JVM. It embeds `liblinpty.so` and extracts that library into a private temporary directory while running.
+The native executable embeds the frontend and PTY shim; it does not require a JVM at runtime.
 
-## Options
+## Configuration
 
 ```text
 lin [--host ADDRESS] [--port PORT] [--token TOKEN] [--allow-remote]
 ```
 
-The same settings can be supplied through `LIN_HOST`, `LIN_PORT`, `LIN_TOKEN`, and
-`LIN_ALLOW_REMOTE` (`true`, `1`, `yes`, or `on` enable the last one). Command-line
-arguments take precedence over environment variables.
+The same settings are available through environment variables:
 
-The default address is `127.0.0.1:7681`. Binding a non-loopback address requires `--allow-remote`; access-token protection remains enabled. TLS and a trusted reverse proxy are strongly recommended for any remote exposure.
-When using an HTTPS reverse proxy, forward `X-Forwarded-Proto: https` so lin marks the authentication cookie `Secure`.
+```text
+LIN_HOST           default: 127.0.0.1
+LIN_PORT           default: 7681
+LIN_TOKEN          random if unset
+LIN_ALLOW_REMOTE  true/1/yes/on to enable
+```
 
-## Current platform scope
+Command-line arguments override environment variables. Non-loopback binding requires explicit remote access (`--allow-remote` or `LIN_ALLOW_REMOTE`). TLS and a trusted reverse proxy are recommended for remote exposure; forward `X-Forwarded-Proto: https` so the auth cookie is marked `Secure`.
 
-The PTY shim currently targets Linux x86_64. macOS and Windows require separate native implementations and release builds.
+## Platform
+
+The PTY shim currently supports Linux x86_64 only.
