@@ -124,12 +124,12 @@ button {
 
 .identity {
   display: flex;
-  width: 88px;
+  width: 48px;
   flex: 0 0 auto;
   align-items: center;
-  gap: 9px;
+  justify-content: center;
   border-right: 1px solid var(--line);
-  padding: 0 14px;
+  padding: 0;
 }
 
 .identity__mark {
@@ -142,13 +142,6 @@ button {
   font-size: 12px;
   line-height: 1;
   transform: rotate(-3deg);
-}
-
-.identity__name {
-  color: var(--text-strong);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
 }
 
 .tabs {
@@ -323,7 +316,6 @@ button {
   place-items: center;
   border: 0;
   border-right: 1px solid var(--line);
-  border-left: 1px solid var(--line);
   background: transparent;
   color: var(--muted);
   cursor: pointer;
@@ -589,7 +581,6 @@ button {
     padding: 0 13px;
   }
 
-  .identity__name,
   .connection span:last-child {
     display: none;
   }

@@ -1,13 +1,14 @@
-import { Monitor, Moon, Plus, Sun } from '@lucide/vue'
+import { Plus } from '@lucide/vue'
 import { useEventListener } from '@vueuse/core'
 import { computed, defineComponent, nextTick, onMounted, ref } from 'vue'
 import type { PropType } from 'vue'
 import { ConnectionStatus } from '#/ConnectionStatus.tsx'
 import { TerminalPane } from '#/TerminalPane.tsx'
 import type { TerminalSessionState } from '#/TerminalPane.tsx'
-import type { ThemeMode } from '#/TerminalPane.tsx'
+import { ThemeToggle } from '#/ThemeToggle.tsx'
 import { Tip } from '#/Tip.tsx'
 import { ToolbarClosableTab } from '#/ToolbarClosableTab.tsx'
+import { useTheme } from '#/useTheme.ts'
 
 interface TerminalTab {
   id: number
@@ -21,8 +22,7 @@ export const App = defineComponent({
     const authenticated = ref(false)
     const checkingAuth = ref(true)
     const authError = ref('')
-    const storedTheme = localStorage.getItem('lin-theme')
-    const theme = ref<ThemeMode>(storedTheme === 'light' || storedTheme === 'dark' ? storedTheme : 'auto')
+    const { theme, setTheme } = useTheme()
     const tabs = ref<TerminalTab[]>([])
     const activeId = ref('')
     let nextId = 1
@@ -63,12 +63,6 @@ export const App = defineComponent({
       if (tab) Object.assign(tab, update)
     }
 
-    const setTheme = (mode: ThemeMode): void => {
-      theme.value = mode
-      localStorage.setItem('lin-theme', mode)
-      document.documentElement.dataset.theme = mode
-    }
-
     useEventListener(window, 'keydown', (event) => {
       if (!(event.ctrlKey || event.metaKey) || event.altKey) return
       const key = event.key.toLowerCase()
@@ -94,7 +88,6 @@ export const App = defineComponent({
     })
 
     onMounted(async () => {
-      document.documentElement.dataset.theme = theme.value
       const token = new URLSearchParams(location.search).get('token')?.trim()
       if (token) history.replaceState(null, '', `${location.pathname}${location.hash}`)
       try {
@@ -142,7 +135,6 @@ export const App = defineComponent({
               <span class="identity__mark" aria-hidden="true">
                 λ
               </span>
-              <span class="identity__name">lin</span>
             </div>
             <div class="tabs" role="tablist" aria-label="Terminal sessions">
               {tabs.value.map((tab) => (
@@ -191,29 +183,7 @@ export const App = defineComponent({
               </Tip>
             </div>
             <ConnectionStatus state={connectionState.value} />
-            <div class="flex items-center gap-0.5 border-l border-[var(--line)] px-2" role="group" aria-label="Theme">
-              {(
-                [
-                  ['auto', Monitor, 'Use system theme'],
-                  ['light', Sun, 'Light theme'],
-                  ['dark', Moon, 'Dark theme'],
-                ] as const
-              ).map(([mode, Icon, label]) => (
-                <button
-                  type="button"
-                  class={[
-                    'grid size-6 place-items-center rounded bg-transparent text-[var(--muted)] hover:bg-[var(--acid-soft)] hover:text-[var(--acid)] focus-visible:bg-[var(--acid-soft)] focus-visible:text-[var(--acid)] focus-visible:outline-none',
-                    theme.value === mode && 'bg-[var(--acid-soft)] text-[var(--acid)]',
-                  ]}
-                  aria-label={label}
-                  aria-pressed={theme.value === mode}
-                  title={label}
-                  onClick={() => setTheme(mode)}
-                >
-                  <Icon size={13} strokeWidth={1.6} aria-hidden="true" />
-                </button>
-              ))}
-            </div>
+            <ThemeToggle modelValue={theme.value} onUpdate:modelValue={setTheme} />
           </header>
           <div class="terminals">
             {tabs.value.map((tab) => (
@@ -278,7 +248,6 @@ const AccessRequired = defineComponent({
             <span class="identity__mark" aria-hidden="true">
               λ
             </span>
-            <span class="identity__name">lin</span>
           </div>
           <div class="tabs" />
           <div class="connection connection--offline">
