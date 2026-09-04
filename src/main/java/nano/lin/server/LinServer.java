@@ -46,7 +46,7 @@ public final class LinServer implements AutoCloseable {
     }
 
     public String accessUrl() {
-        String host = config.address().isAnyLocalAddress() ? "127.0.0.1" : config.address().getHostAddress();
+        var host = config.address().isAnyLocalAddress() ? "127.0.0.1" : config.address().getHostAddress();
         return "http://" + host + ":" + boundPort + "/?token=" + config.token();
     }
 
@@ -57,7 +57,7 @@ public final class LinServer implements AutoCloseable {
     private void acceptLoop() {
         try {
             while (!closed.get()) {
-                Socket socket = serverSocket.accept();
+                var socket = serverSocket.accept();
                 socket.setTcpNoDelay(true);
                 socket.setSoTimeout(10_000);
                 Thread.ofVirtual().name("lin-http-client").start(() -> handle(socket));
@@ -71,10 +71,10 @@ public final class LinServer implements AutoCloseable {
 
     private void handle(Socket socket) {
         try (socket) {
-            BufferedInputStream input = new BufferedInputStream(socket.getInputStream());
-            OutputStream output = socket.getOutputStream();
-            HttpRequest request = HttpRequest.read(input);
-            URI target = parseTarget(request.target());
+            var input = new BufferedInputStream(socket.getInputStream());
+            var output = socket.getOutputStream();
+            var request = HttpRequest.read(input);
+            var target = parseTarget(request.target());
             router.dispatch(new HttpExchange(socket, input, output, request, target));
         } catch (Exception error) {
             if (!closed.get() && !(error instanceof IOException)) {
@@ -99,15 +99,15 @@ public final class LinServer implements AutoCloseable {
             HttpResponse.error(output, 403, "Invalid WebSocket origin");
             return;
         }
-        String key = request.header("sec-websocket-key");
+        var key = request.header("sec-websocket-key");
         if (key == null || !"13".equals(request.header("sec-websocket-version"))) {
             HttpResponse.error(output, 400, "Unsupported WebSocket handshake");
             return;
         }
 
         socket.setSoTimeout(0);
-        WebSocketConnection connection = WebSocketConnection.accept(input, output, key);
-        PtySession session = new PtySession(connection::sendOutput, connection::sendExit);
+        var connection = WebSocketConnection.accept(input, output, key);
+        var session = new PtySession(connection::sendOutput, connection::sendExit);
         sessions.add(session);
         try {
             connection.run(session);
@@ -126,7 +126,7 @@ public final class LinServer implements AutoCloseable {
         if (!"POST".equals(request.method()) || !validOrigin(request.header("origin"), request.header("host"))) {
             HttpResponse.error(output, 403, "Invalid authentication request"); return;
         }
-        byte[] body = request.readBody(input, 4096);
+        var body = request.readBody(input, 4096);
         if (!constantTimeEquals(config.token(), new String(body, StandardCharsets.UTF_8).trim())) {
             HttpResponse.error(output, 401, "Invalid access token"); return;
         }
@@ -144,17 +144,17 @@ public final class LinServer implements AutoCloseable {
 
     private static String cookie(String header, String name) {
         if (header == null) return null;
-        for (String item : header.split(";")) {
-            String[] pair = item.trim().split("=", 2);
+        for (var item : header.split(";")) {
+            var pair = item.trim().split("=", 2);
             if (pair.length == 2 && pair[0].equals(name)) return pair[1];
         }
         return null;
     }
 
     private String authCookie(HttpRequest request) {
-        String forwarded = request.header("x-forwarded-proto");
-        String origin = request.header("origin");
-        boolean secure = "https".equalsIgnoreCase(forwarded) || (origin != null && origin.startsWith("https://"));
+        var forwarded = request.header("x-forwarded-proto");
+        var origin = request.header("origin");
+        var secure = "https".equalsIgnoreCase(forwarded) || (origin != null && origin.startsWith("https://"));
         return AUTH_COOKIE + "=" + config.token() + (secure ? "; Secure" : "") + "; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800";
     }
 

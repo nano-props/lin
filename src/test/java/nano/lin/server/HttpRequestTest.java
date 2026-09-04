@@ -12,12 +12,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 final class HttpRequestTest {
     @Test
     void parsesAWebSocketUpgradeRequest() throws IOException {
-        String source = "GET /ws?token=abc HTTP/1.1\r\n"
+        var source = "GET /ws?token=abc HTTP/1.1\r\n"
             + "Host: 127.0.0.1:7681\r\n"
             + "Upgrade: websocket\r\n"
             + "Connection: Upgrade\r\n\r\n";
 
-        HttpRequest request = HttpRequest.read(new ByteArrayInputStream(source.getBytes(StandardCharsets.US_ASCII)));
+        var request = HttpRequest.read(new ByteArrayInputStream(source.getBytes(StandardCharsets.US_ASCII)));
 
         assertEquals("GET", request.method());
         assertEquals("/ws?token=abc", request.target());
@@ -26,7 +26,7 @@ final class HttpRequestTest {
 
     @Test
     void rejectsMalformedHeaders() {
-        String source = "GET / HTTP/1.1\r\nnot-a-header\r\n\r\n";
+        var source = "GET / HTTP/1.1\r\nnot-a-header\r\n\r\n";
 
         assertThrows(
             IOException.class,
@@ -36,7 +36,7 @@ final class HttpRequestTest {
 
     @Test
     void boundsTheHeaderSection() {
-        String source = "GET / HTTP/1.1\r\nX-Fill: " + "x".repeat(20_000) + "\r\n\r\n";
+        var source = "GET / HTTP/1.1\r\nX-Fill: " + "x".repeat(20_000) + "\r\n\r\n";
 
         assertThrows(
             IOException.class,

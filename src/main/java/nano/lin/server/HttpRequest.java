@@ -12,21 +12,21 @@ record HttpRequest(String method, String target, Map<String, String> headers) {
     private static final int MAX_HEADER_BYTES = 16 * 1024;
 
     static HttpRequest read(InputStream input) throws IOException {
-        int[] consumed = {0};
-        String requestLine = readLine(input, consumed);
+        var consumed = new int[]{0};
+        var requestLine = readLine(input, consumed);
         if (requestLine == null || requestLine.isBlank()) throw new IOException("empty HTTP request");
-        String[] parts = requestLine.split(" ", 3);
+        var parts = requestLine.split(" ", 3);
         if (parts.length != 3 || !parts[2].startsWith("HTTP/1.")) throw new IOException("invalid HTTP request line");
 
-        Map<String, String> headers = new LinkedHashMap<>();
+        var headers = new LinkedHashMap<String, String>();
         while (true) {
-            String line = readLine(input, consumed);
+            var line = readLine(input, consumed);
             if (line == null) throw new IOException("truncated HTTP headers");
             if (line.isEmpty()) break;
-            int separator = line.indexOf(':');
+            var separator = line.indexOf(':');
             if (separator <= 0) throw new IOException("invalid HTTP header");
-            String name = line.substring(0, separator).trim().toLowerCase(Locale.ROOT);
-            String value = line.substring(separator + 1).trim();
+            var name = line.substring(0, separator).trim().toLowerCase(Locale.ROOT);
+            var value = line.substring(separator + 1).trim();
             headers.merge(name, value, (left, right) -> left + ", " + right);
         }
         return new HttpRequest(parts[0], parts[1], Map.copyOf(headers));
@@ -37,22 +37,22 @@ record HttpRequest(String method, String target, Map<String, String> headers) {
     }
 
     byte[] readBody(InputStream input, int maxBytes) throws IOException {
-        String length = header("content-length");
+        var length = header("content-length");
         if (length == null) throw new IOException("Content-Length is required");
         final int expected;
         try { expected = Integer.parseInt(length); }
         catch (NumberFormatException error) { throw new IOException("Invalid Content-Length", error); }
         if (expected < 0 || expected > maxBytes) throw new IOException("Request body is too large");
-        byte[] body = input.readNBytes(expected);
+        var body = input.readNBytes(expected);
         if (body.length != expected) throw new IOException("Truncated request body");
         return body;
     }
 
     private static String readLine(InputStream input, int[] consumed) throws IOException {
         ByteArrayOutputStream line = new ByteArrayOutputStream();
-        boolean carriageReturn = false;
+        var carriageReturn = false;
         while (true) {
-            int next = input.read();
+            var next = input.read();
             if (next < 0) return line.size() == 0 ? null : line.toString(StandardCharsets.US_ASCII);
             if (++consumed[0] > MAX_HEADER_BYTES) throw new IOException("HTTP headers are too large");
             if (carriageReturn) {

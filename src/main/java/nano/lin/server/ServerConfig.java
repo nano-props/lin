@@ -7,12 +7,12 @@ import java.util.Base64;
 
 public record ServerConfig(InetAddress address, int port, String token) {
     public static ServerConfig parse(String[] args) {
-        String host = "127.0.0.1";
-        int port = 7681;
+        var host = "127.0.0.1";
+        var port = 7681;
         String token = null;
-        boolean allowRemote = false;
+        var allowRemote = false;
 
-        for (int index = 0; index < args.length; index++) {
+        for (var index = 0; index < args.length; index++) {
             switch (args[index]) {
                 case "--host" -> host = requireValue(args, ++index, "--host");
                 case "--port" -> port = parsePort(requireValue(args, ++index, "--port"));
@@ -45,7 +45,7 @@ public record ServerConfig(InetAddress address, int port, String token) {
 
     private static int parsePort(String value) {
         try {
-            int port = Integer.parseInt(value);
+            var port = Integer.parseInt(value);
             if (port < 0 || port > 65_535) throw new NumberFormatException();
             return port;
         } catch (NumberFormatException error) {
@@ -54,7 +54,7 @@ public record ServerConfig(InetAddress address, int port, String token) {
     }
 
     private static String randomToken() {
-        byte[] bytes = new byte[32];
+        var bytes = new byte[32];
         new SecureRandom().nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }

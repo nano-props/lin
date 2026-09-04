@@ -57,22 +57,22 @@ final class PtyNative {
     private PtyNative() {}
 
     static SpawnResult spawn(int cols, int rows) throws IOException {
-        String home = System.getProperty("user.home");
-        String shell = selectShell();
-        Map<String, String> environment = new LinkedHashMap<>(System.getenv());
+        var home = System.getProperty("user.home");
+        var shell = selectShell();
+        var environment = new LinkedHashMap<String, String>(System.getenv());
         environment.putIfAbsent("TERM", "xterm-256color");
         environment.putIfAbsent("COLORTERM", "truecolor");
         environment.putIfAbsent("SHELL", shell);
 
         try (Arena arena = Arena.ofConfined()) {
-            MemorySegment cwd = arena.allocateFrom(home);
-            MemorySegment argv = pointerArray(arena, List.of(shell, "-l"));
-            List<String> entries = new ArrayList<>(environment.size());
+            var cwd = arena.allocateFrom(home);
+            var argv = pointerArray(arena, List.of(shell, "-l"));
+            var entries = new ArrayList<String>(environment.size());
             environment.forEach((key, value) -> entries.add(key + "=" + value));
-            MemorySegment envp = pointerArray(arena, entries);
-            MemorySegment master = arena.allocate(C_INT);
-            MemorySegment pid = arena.allocate(C_INT);
-            int error = (int)SPAWN.invokeExact(cwd, argv, envp, cols, rows, master, pid);
+            var envp = pointerArray(arena, entries);
+            var master = arena.allocate(C_INT);
+            var pid = arena.allocate(C_INT);
+            var error = (int)SPAWN.invokeExact(cwd, argv, envp, cols, rows, master, pid);
             if (error != 0) throw nativeError("spawn PTY", error);
             return new SpawnResult(master.get(C_INT, 0), pid.get(C_INT, 0), Path.of(shell).getFileName().toString());
         } catch (IOException error) {
@@ -84,10 +84,10 @@ final class PtyNative {
 
     static int read(int fd, byte[] destination) throws IOException {
         try (Arena arena = Arena.ofConfined()) {
-            MemorySegment buffer = arena.allocate(destination.length);
-            long result = (long)READ.invokeExact(fd, buffer, destination.length);
+            var buffer = arena.allocate(destination.length);
+            var result = (long)READ.invokeExact(fd, buffer, destination.length);
             if (result < 0) {
-                int errno = (int)-result;
+                var errno = (int)-result;
                 if (errno == 5) return -1; // Linux returns EIO when the PTY slave closes.
                 throw nativeError("read PTY", errno);
             }
@@ -104,11 +104,11 @@ final class PtyNative {
     static void write(int fd, byte[] source, int offset, int length) throws IOException {
         if (length == 0) return;
         try (Arena arena = Arena.ofConfined()) {
-            MemorySegment buffer = arena.allocate(length);
+            var buffer = arena.allocate(length);
             MemorySegment.copy(MemorySegment.ofArray(source), offset, buffer, 0, length);
-            int written = 0;
+            var written = 0;
             while (written < length) {
-                long result = (long)WRITE.invokeExact(fd, buffer.asSlice(written), length - written);
+                var result = (long)WRITE.invokeExact(fd, buffer.asSlice(written), length - written);
                 if (result < 0) throw nativeError("write PTY", (int)-result);
                 if (result == 0) throw new IOException("PTY write made no progress");
                 written += (int)result;
@@ -130,11 +130,11 @@ final class PtyNative {
 
     static int waitFor(int pid) throws IOException {
         try (Arena arena = Arena.ofConfined()) {
-            MemorySegment status = arena.allocate(C_INT);
-            int error = (int)WAIT.invokeExact(pid, status);
+            var status = arena.allocate(C_INT);
+            var error = (int)WAIT.invokeExact(pid, status);
             if (error != 0) throw nativeError("wait for PTY process", error);
-            int raw = status.get(C_INT, 0);
-            int signal = raw & 0x7F;
+            var raw = status.get(C_INT, 0);
+            var signal = raw & 0x7F;
             return signal == 0 ? (raw >>> 8) & 0xFF : 128 + signal;
         } catch (IOException error) {
             throw error;
@@ -153,7 +153,7 @@ final class PtyNative {
 
     private static void invokeInt(String operation, MethodHandle handle, int... arguments) throws IOException {
         try {
-            int error = switch (arguments.length) {
+            var error = switch (arguments.length) {
                 case 2 -> (int)handle.invokeExact(arguments[0], arguments[1]);
                 case 3 -> (int)handle.invokeExact(arguments[0], arguments[1], arguments[2]);
                 default -> throw new IllegalArgumentException("unsupported native invocation");
@@ -167,16 +167,16 @@ final class PtyNative {
     }
 
     private static SymbolLookup loadLookup() {
-        String library = System.getProperty("lin.native.library");
-        Path path = library == null || library.isBlank() ? extractLibrary() : Path.of(library).toAbsolutePath();
+        var library = System.getProperty("lin.native.library");
+        var path = library == null || library.isBlank() ? extractLibrary() : Path.of(library).toAbsolutePath();
         System.load(path.toString());
         return SymbolLookup.loaderLookup();
     }
 
     private static Path extractLibrary() {
         try {
-            Path directory = Files.createTempDirectory("lin-pty-");
-            Path library = directory.resolve("liblinpty.so");
+            var directory = Files.createTempDirectory("lin-pty-");
+            var library = directory.resolve("liblinpty.so");
             try (var source = PtyNative.class.getResourceAsStream("/native/linux-x86_64/liblinpty.so")) {
                 if (source == null) throw new IOException("embedded Linux PTY library is missing");
                 Files.copy(source, library, StandardCopyOption.REPLACE_EXISTING);
@@ -190,14 +190,14 @@ final class PtyNative {
     }
 
     private static MethodHandle downcall(String name, FunctionDescriptor descriptor) {
-        MemorySegment symbol = LOOKUP.find(name)
+        var symbol = LOOKUP.find(name)
             .orElseThrow(() -> new UnsatisfiedLinkError("missing native PTY symbol: " + name));
         return LINKER.downcallHandle(symbol, descriptor);
     }
 
     private static MemorySegment pointerArray(Arena arena, List<String> values) {
-        MemorySegment array = arena.allocate(C_POINTER.byteSize() * (values.size() + 1), C_POINTER.byteAlignment());
-        for (int index = 0; index < values.size(); index++) {
+        var array = arena.allocate(C_POINTER.byteSize() * (values.size() + 1), C_POINTER.byteAlignment());
+        for (var index = 0; index < values.size(); index++) {
             array.setAtIndex(C_POINTER, index, arena.allocateFrom(values.get(index)));
         }
         array.setAtIndex(C_POINTER, values.size(), MemorySegment.NULL);
@@ -205,7 +205,7 @@ final class PtyNative {
     }
 
     private static String selectShell() {
-        String configured = System.getenv("SHELL");
+        var configured = System.getenv("SHELL");
         if (configured != null && Files.isExecutable(Path.of(configured))) return configured;
         if (Files.isExecutable(Path.of("/bin/bash"))) return "/bin/bash";
         return "/bin/sh";

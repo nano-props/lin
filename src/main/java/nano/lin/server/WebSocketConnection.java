@@ -29,8 +29,8 @@ final class WebSocketConnection {
     }
 
     static WebSocketConnection accept(InputStream input, OutputStream output, String key) throws IOException {
-        String accept = acceptKey(key);
-        String response = "HTTP/1.1 101 Switching Protocols\r\n"
+        var accept = acceptKey(key);
+        var response = "HTTP/1.1 101 Switching Protocols\r\n"
             + "Upgrade: websocket\r\n"
             + "Connection: Upgrade\r\n"
             + "Sec-WebSocket-Accept: " + accept + "\r\n\r\n";
@@ -43,11 +43,11 @@ final class WebSocketConnection {
         session.start(80, 24);
         sendMetadata(session.processName());
         ByteArrayOutputStream fragmented = null;
-        int fragmentedOpcode = -1;
+        var fragmentedOpcode = -1;
 
         try {
             while (open.get()) {
-                Frame frame = readFrame();
+                var frame = readFrame();
                 if (frame.opcode == 0x8) {
                     sendClose(frame.payload);
                     return;
@@ -86,8 +86,8 @@ final class WebSocketConnection {
     private void sendMetadata(String processName) { sendBinary(metadataPayload(processName)); }
 
     static byte[] metadataPayload(String processName) {
-        byte[] name = processName.getBytes(StandardCharsets.UTF_8);
-        byte[] payload = new byte[name.length + 1]; payload[0] = 3; System.arraycopy(name, 0, payload, 1, name.length); return payload;
+        var name = processName.getBytes(StandardCharsets.UTF_8);
+        var payload = new byte[name.length + 1]; payload[0] = 3; System.arraycopy(name, 0, payload, 1, name.length); return payload;
     }
 
     void sendOutput(byte[] bytes) {
@@ -104,7 +104,7 @@ final class WebSocketConnection {
     }
 
     static byte[] terminalOutputPayload(byte[] bytes) {
-        byte[] payload = new byte[bytes.length + 1];
+        var payload = new byte[bytes.length + 1];
         payload[0] = 0;
         System.arraycopy(bytes, 0, payload, 1, bytes.length);
         return payload;
@@ -112,7 +112,7 @@ final class WebSocketConnection {
 
     void sendExit(int exitCode) {
         if (!open.get()) return;
-        ByteBuffer payload = ByteBuffer.allocate(5);
+        var payload = ByteBuffer.allocate(5);
         payload.put((byte)2).putInt(exitCode);
         sendBinary(payload.array());
         try {
@@ -128,9 +128,9 @@ final class WebSocketConnection {
             case 0 -> session.write(payload, 1, payload.length - 1);
             case 1 -> {
                 if (payload.length != 5) throw new IOException("invalid resize message");
-                ByteBuffer size = ByteBuffer.wrap(payload, 1, 4);
-                int cols = Short.toUnsignedInt(size.getShort());
-                int rows = Short.toUnsignedInt(size.getShort());
+                var size = ByteBuffer.wrap(payload, 1, 4);
+                var cols = Short.toUnsignedInt(size.getShort());
+                var rows = Short.toUnsignedInt(size.getShort());
                 if (cols < 2 || cols > 1000 || rows < 1 || rows > 1000) {
                     throw new IOException("terminal size is out of range");
                 }
@@ -141,14 +141,14 @@ final class WebSocketConnection {
     }
 
     private Frame readFrame() throws IOException {
-        int first = input.readUnsignedByte();
-        int second = input.readUnsignedByte();
-        boolean finished = (first & 0x80) != 0;
-        int opcode = first & 0x0F;
-        boolean masked = (second & 0x80) != 0;
+        var first = input.readUnsignedByte();
+        var second = input.readUnsignedByte();
+        var finished = (first & 0x80) != 0;
+        var opcode = first & 0x0F;
+        var masked = (second & 0x80) != 0;
         if (!masked) throw new IOException("client WebSocket frames must be masked");
 
-        long length = second & 0x7F;
+        var length = (long) (second & 0x7F);
         if (length == 126) length = input.readUnsignedShort();
         else if (length == 127) {
             length = input.readLong();
@@ -157,11 +157,11 @@ final class WebSocketConnection {
         if (length > MAX_MESSAGE_BYTES) throw new IOException("WebSocket message is too large");
         if (opcode >= 0x8 && (!finished || length > 125)) throw new IOException("invalid WebSocket control frame");
 
-        byte[] mask = input.readNBytes(4);
+        var mask = input.readNBytes(4);
         if (mask.length != 4) throw new IOException("truncated WebSocket mask");
-        byte[] payload = input.readNBytes((int)length);
+        var payload = input.readNBytes((int)length);
         if (payload.length != length) throw new IOException("truncated WebSocket frame");
-        for (int index = 0; index < payload.length; index++) payload[index] ^= mask[index & 3];
+        for (var index = 0; index < payload.length; index++) payload[index] ^= mask[index & 3];
         return new Frame(finished, opcode, payload);
     }
 
@@ -201,7 +201,7 @@ final class WebSocketConnection {
 
     private static String acceptKey(String key) throws IOException {
         try {
-            byte[] digest = MessageDigest.getInstance("SHA-1")
+            var digest = MessageDigest.getInstance("SHA-1")
                 .digest((key.trim() + WEBSOCKET_GUID).getBytes(StandardCharsets.US_ASCII));
             return Base64.getEncoder().encodeToString(digest);
         } catch (NoSuchAlgorithmException error) {
@@ -210,7 +210,7 @@ final class WebSocketConnection {
     }
 
     private static byte[] closePayload(int code, String reason) {
-        byte[] text = reason.getBytes(StandardCharsets.UTF_8);
+        var text = reason.getBytes(StandardCharsets.UTF_8);
         return ByteBuffer.allocate(2 + text.length).putShort((short)code).put(text).array();
     }
 

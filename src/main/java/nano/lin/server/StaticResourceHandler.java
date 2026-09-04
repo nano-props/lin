@@ -10,14 +10,14 @@ final class StaticResourceHandler {
             HttpResponse.error(exchange.output(), 405, "Method not allowed");
             return;
         }
-        String path = exchange.target().getPath();
-        String resourcePath = switch (path) {
+        var path = exchange.target().getPath();
+        var resourcePath = switch (path) {
             case "", "/" -> "web/index.html";
             default -> path.startsWith("/") ? "web" + path : "web/" + path;
         };
         if (resourcePath.contains("..")) { HttpResponse.error(exchange.output(), 404, "Not found"); return; }
         byte[] body;
-        try (InputStream resource = StaticResourceHandler.class.getClassLoader().getResourceAsStream(resourcePath)) {
+        try (var resource = StaticResourceHandler.class.getClassLoader().getResourceAsStream(resourcePath)) {
             if (resource == null) { HttpResponse.error(exchange.output(), 404, "Not found"); return; }
             body = resource.readAllBytes();
         }
@@ -26,7 +26,7 @@ final class StaticResourceHandler {
     }
 
     private static String contentType(String path) {
-        String lower = path.toLowerCase(Locale.ROOT);
+        var lower = path.toLowerCase(Locale.ROOT);
         if (lower.endsWith(".html")) return "text/html; charset=utf-8";
         if (lower.endsWith(".js")) return "text/javascript; charset=utf-8";
         if (lower.endsWith(".css")) return "text/css; charset=utf-8";

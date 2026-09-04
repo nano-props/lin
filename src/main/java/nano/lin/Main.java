@@ -17,7 +17,7 @@ public final class Main {
             return;
         }
 
-        LinServer server = new LinServer(config);
+        var server = new LinServer(config);
         Runtime.getRuntime().addShutdownHook(Thread.ofPlatform().unstarted(server::close));
         server.start();
 

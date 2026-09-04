@@ -13,7 +13,7 @@ final class HttpResponse {
 
     static void write(OutputStream output, int status, String reason, String contentType,
                       byte[] body, boolean headOnly, String setCookie) throws IOException {
-        String headers = "HTTP/1.1 " + status + " " + reason + "\r\n"
+        var headers = "HTTP/1.1 " + status + " " + reason + "\r\n"
             + "Content-Type: " + contentType + "\r\n"
             + "Content-Length: " + body.length + "\r\n"
             + "Cache-Control: no-store\r\n"

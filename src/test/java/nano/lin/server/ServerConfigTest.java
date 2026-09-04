@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 final class ServerConfigTest {
     @Test
     void defaultsToLoopbackWithRandomToken() {
-        ServerConfig config = ServerConfig.parse(new String[]{});
+        var config = ServerConfig.parse(new String[]{});
 
         assertTrue(config.address().isLoopbackAddress());
         assertEquals(7681, config.port());
@@ -18,7 +18,7 @@ final class ServerConfigTest {
 
     @Test
     void acceptsExplicitDevelopmentConfiguration() {
-        ServerConfig config = ServerConfig.parse(new String[]{
+        var config = ServerConfig.parse(new String[]{
             "--port", "0",
             "--token", "0123456789abcdef",
         });

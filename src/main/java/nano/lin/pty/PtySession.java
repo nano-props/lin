@@ -26,7 +26,7 @@ public final class PtySession implements AutoCloseable {
 
     public void start(int cols, int rows) throws IOException {
         if (!started.compareAndSet(false, true)) throw new IllegalStateException("PTY session already started");
-        PtyNative.SpawnResult process = PtyNative.spawn(cols, rows);
+        var process = PtyNative.spawn(cols, rows);
         masterFd = process.masterFd();
         pid = process.pid();
         processName = process.processName();
@@ -51,10 +51,10 @@ public final class PtySession implements AutoCloseable {
     }
 
     private void readOutput() {
-        byte[] buffer = new byte[16 * 1024];
+        var buffer = new byte[16 * 1024];
         try {
             while (alive.get()) {
-                int count = PtyNative.read(masterFd, buffer);
+                var count = PtyNative.read(masterFd, buffer);
                 if (count < 0) return;
                 output.accept(Arrays.copyOf(buffer, count));
             }
@@ -64,7 +64,7 @@ public final class PtySession implements AutoCloseable {
     }
 
     private void waitForExit() {
-        int exitCode = 255;
+        var exitCode = 255;
         try {
             exitCode = PtyNative.waitFor(pid);
         } catch (IOException ignored) {
