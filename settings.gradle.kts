@@ -6,3 +6,4 @@ pluginManagement {
 }
 
 rootProject.name = "lin"
+include(":server", ":web")

@@ -2,7 +2,8 @@
 set -euo pipefail
 
 project_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-output_dir="$project_dir/build/native"
+source_file="$project_dir/server/src/main/c/linpty.c"
+output_dir="${LIN_NATIVE_OUTPUT_DIR:-$project_dir/build/native}"
 mkdir -p "$output_dir"
 
 if [[ "$(uname -s)" == "Darwin" ]]; then
@@ -20,7 +21,7 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
     -Wextra \
     -Werror \
     -dynamiclib \
-    "$project_dir/src/main/c/linpty.c" \
+    "$source_file" \
     -install_name "@rpath/liblinpty.dylib" \
     -o "$output_dir/liblinpty.dylib"
   exit 0
@@ -34,7 +35,7 @@ gcc \
   -Wextra \
   -Werror \
   -shared \
-  "$project_dir/src/main/c/linpty.c" \
+  "$source_file" \
   -Wl,-soname,liblinpty.so \
   -lutil \
   -o "$output_dir/liblinpty.so"

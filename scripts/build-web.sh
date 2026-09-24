@@ -2,7 +2,7 @@
 set -euo pipefail
 
 project_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-cd "$project_dir/frontend"
+cd "$project_dir/web"
 
 bun install --frozen-lockfile
 bun run build

@@ -19,7 +19,14 @@ Open the tokenized URL printed by `lin`.
 
 ```bash
 ./gradlew test nativeCompile
-./build/native/nativeCompile/lin
+./server/build/native/nativeCompile/lin
+
+The Gradle project is split into two subprojects:
+
+```text
+:server  Java server, PTY shim, and native image
+:web     Vue/xterm frontend
+```
 ```
 
 The native executable embeds the frontend and PTY shim; it does not require a JVM at runtime.
