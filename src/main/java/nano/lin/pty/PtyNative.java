@@ -176,9 +176,11 @@ final class PtyNative {
     private static Path extractLibrary() {
         try {
             var directory = Files.createTempDirectory("lin-pty-");
-            var library = directory.resolve("liblinpty.so");
-            try (var source = PtyNative.class.getResourceAsStream("/native/linux-x86_64/liblinpty.so")) {
-                if (source == null) throw new IOException("embedded Linux PTY library is missing");
+            var libraryName = nativeLibraryName();
+            var resourcePath = nativeResourcePath(libraryName);
+            var library = directory.resolve(libraryName);
+            try (var source = PtyNative.class.getResourceAsStream(resourcePath)) {
+                if (source == null) throw new IOException("embedded PTY library is missing: " + resourcePath);
                 Files.copy(source, library, StandardCopyOption.REPLACE_EXISTING);
             }
             directory.toFile().deleteOnExit();
@@ -187,6 +189,19 @@ final class PtyNative {
         } catch (IOException error) {
             throw new ExceptionInInitializerError(error);
         }
+    }
+
+    private static String nativeLibraryName() {
+        var os = System.getProperty("os.name").toLowerCase();
+        var arch = System.getProperty("os.arch").toLowerCase();
+        if (os.contains("mac") && (arch.equals("aarch64") || arch.equals("arm64"))) return "liblinpty.dylib";
+        if (os.contains("linux") && (arch.equals("amd64") || arch.equals("x86_64"))) return "liblinpty.so";
+        throw new UnsupportedOperationException("unsupported PTY platform: " + os + " " + arch);
+    }
+
+    private static String nativeResourcePath(String libraryName) {
+        var platform = libraryName.endsWith(".dylib") ? "macos-aarch64" : "linux-x86_64";
+        return "/native/" + platform + "/" + libraryName;
     }
 
     private static MethodHandle downcall(String name, FunctionDescriptor descriptor) {

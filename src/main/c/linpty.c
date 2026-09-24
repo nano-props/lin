@@ -1,7 +1,11 @@
 #define _GNU_SOURCE
 
 #include <errno.h>
+#if defined(__APPLE__)
+#include <util.h>
+#else
 #include <pty.h>
+#endif
 #include <signal.h>
 #include <stdint.h>
 #include <stdlib.h>

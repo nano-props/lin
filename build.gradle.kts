@@ -25,7 +25,18 @@ application {
 }
 
 val frontendDir = layout.projectDirectory.dir("frontend")
-val nativeLibrary = layout.buildDirectory.file("native/liblinpty.so")
+val hostOs = System.getProperty("os.name").lowercase()
+val hostArch = System.getProperty("os.arch").lowercase()
+val isMacOsArm64 = hostOs.contains("mac") && (hostArch == "aarch64" || hostArch == "arm64")
+val isLinuxX64 = hostOs.contains("linux") && (hostArch == "amd64" || hostArch == "x86_64")
+
+if (!isMacOsArm64 && !isLinuxX64) {
+    throw GradleException("Unsupported host: ${System.getProperty("os.name")} ${System.getProperty("os.arch")}; supported targets are Linux x86_64 and macOS arm64")
+}
+
+val nativeLibraryName = if (isMacOsArm64) "liblinpty.dylib" else "liblinpty.so"
+val nativeResourceDirectory = if (isMacOsArm64) "native/macos-aarch64" else "native/linux-x86_64"
+val nativeLibrary = layout.buildDirectory.file("native/$nativeLibraryName")
 val nativeLibraryPath = nativeLibrary.get().asFile.absolutePath
 
 val buildWeb = tasks.register<Exec>("buildWeb") {
@@ -56,7 +67,7 @@ tasks.processResources {
         into("web")
     }
     from(nativeLibrary) {
-        into("native/linux-x86_64")
+        into(nativeResourceDirectory)
     }
 }
 

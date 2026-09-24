@@ -4,7 +4,8 @@
 
 ## Requirements
 
-Linux x86_64, GraalVM for JDK 25, Bun 1.4+, GCC, and Linux PTY headers (`libc6-dev`).
+Linux x86_64 or macOS arm64, GraalVM for JDK 25, Bun 1.4+, and a C compiler.
+Linux builds require Linux PTY headers (`libc6-dev`). macOS builds require Xcode Command Line Tools.
 
 ## Run
 
@@ -42,4 +43,4 @@ Command-line arguments override environment variables. Non-loopback binding requ
 
 ## Platform
 
-The PTY shim currently supports Linux x86_64 only.
+The PTY shim supports Linux x86_64 and macOS arm64. Intel macOS is not supported.
