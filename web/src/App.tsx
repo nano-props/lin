@@ -12,9 +12,12 @@ import { useTheme } from '#/useTheme.ts'
 
 interface TerminalTab {
   id: number
+  sessionKey: string
   title: string
   state: TerminalSessionState
 }
+
+const SESSION_STORAGE_KEY = 'lin-terminal-sessions'
 
 export const App = defineComponent({
   name: 'App',
@@ -33,11 +36,16 @@ export const App = defineComponent({
       return 'offline'
     })
 
-    const createTerminal = (): void => {
+    const saveSessions = (): void => {
+      sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(tabs.value.map((tab) => tab.sessionKey)))
+    }
+
+    const createTerminal = (sessionKey: string = crypto.randomUUID()): void => {
       if (!authenticated.value) return
       const id = nextId++
-      tabs.value.push({ id, title: 'shell', state: 'connecting' })
+      tabs.value.push({ id, sessionKey, title: 'shell', state: 'connecting' })
       activeId.value = String(id)
+      saveSessions()
       nextTick(() => {
         document.querySelector<HTMLElement>(`[data-terminal-tab="${id}"]`)?.scrollIntoView({
           block: 'nearest',
@@ -51,6 +59,7 @@ export const App = defineComponent({
       if (index < 0) return
       const wasActive = activeId.value === String(id)
       tabs.value.splice(index, 1)
+      saveSessions()
       if (wasActive) {
         const replacement = tabs.value[Math.min(index, tabs.value.length - 1)]
         activeId.value = replacement ? String(replacement.id) : ''
@@ -104,7 +113,11 @@ export const App = defineComponent({
         authError.value = 'Unable to connect to lin'
       } finally {
         checkingAuth.value = false
-        if (authenticated.value) createTerminal()
+        if (authenticated.value) {
+          const saved = readSessions()
+          if (saved.length > 0) saved.forEach((sessionKey) => createTerminal(sessionKey))
+          else createTerminal()
+        }
       }
     })
 
@@ -177,7 +190,7 @@ export const App = defineComponent({
                 </ToolbarClosableTab>
               ))}
               <Tip label="New terminal · Ctrl/⌘ T">
-                <button class="new-tab" type="button" aria-label="New terminal" onClick={createTerminal}>
+                <button class="new-tab" type="button" aria-label="New terminal" onClick={() => createTerminal()}>
                   <Plus size={15} strokeWidth={1.5} aria-hidden="true" />
                 </button>
               </Tip>
@@ -197,6 +210,7 @@ export const App = defineComponent({
               >
                 <TerminalPane
                   sessionId={tab.id}
+                  sessionKey={tab.sessionKey}
                   active={activeId.value === String(tab.id)}
                   theme={theme.value}
                   onStateChange={(state) => updateTab(tab.id, { state })}
@@ -210,6 +224,15 @@ export const App = defineComponent({
     }
   },
 })
+
+function readSessions(): string[] {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(SESSION_STORAGE_KEY) ?? '[]')
+    return Array.isArray(value) && value.every((item) => typeof item === 'string') ? value : []
+  } catch {
+    return []
+  }
+}
 
 function handleTabKeydown(event: KeyboardEvent, id: number): void {
   const tabs = Array.from(document.querySelectorAll<HTMLElement>('[data-terminal-tab]'))

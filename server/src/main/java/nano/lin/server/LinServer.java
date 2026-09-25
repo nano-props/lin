@@ -13,16 +13,25 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class LinServer implements AutoCloseable {
     private static final String AUTH_COOKIE = "lin_access";
     private final ServerConfig config;
     private final ServerSocket serverSocket = new ServerSocket();
-    private final Set<PtySession> sessions = ConcurrentHashMap.newKeySet();
+    private static final long SESSION_GRACE_SECONDS = 30;
+    private final ConcurrentHashMap<String, PtySession> sessions = new ConcurrentHashMap<>();
+    private final ScheduledExecutorService sessionCleanup = Executors.newSingleThreadScheduledExecutor(r -> {
+        var thread = new Thread(r, "lin-session-cleanup");
+        thread.setDaemon(true);
+        return thread;
+    });
     private final CountDownLatch stopped = new CountDownLatch(1);
     private final AtomicBoolean closed = new AtomicBoolean();
     private final HttpRouter router;
@@ -106,15 +115,32 @@ public final class LinServer implements AutoCloseable {
         }
 
         socket.setSoTimeout(0);
+        var sessionId = sessionId(target);
         var connection = WebSocketConnection.accept(input, output, key);
-        var session = new PtySession(connection::sendOutput, connection::sendExit);
-        sessions.add(session);
+        var session = sessions.computeIfAbsent(sessionId, id -> new PtySession(exitCode -> sessions.remove(id)));
         try {
             connection.run(session);
         } finally {
-            sessions.remove(session);
-            session.close();
+            sessionCleanup.schedule(() -> {
+                if (session.isDetached() && sessions.remove(sessionId, session)) session.close();
+            }, SESSION_GRACE_SECONDS, TimeUnit.SECONDS);
         }
+    }
+
+    private static String sessionId(URI target) throws IOException {
+        var query = target.getRawQuery();
+        if (query == null) throw new IOException("missing terminal session id");
+        for (var part : query.split("&")) {
+            var pair = part.split("=", 2);
+            if (pair.length == 2 && pair[0].equals("session")) {
+                try {
+                    return UUID.fromString(pair[1]).toString();
+                } catch (IllegalArgumentException error) {
+                    throw new IOException("invalid terminal session id", error);
+                }
+            }
+        }
+        throw new IOException("missing terminal session id");
     }
 
     private boolean validOrigin(String origin, String host) {
@@ -177,7 +203,8 @@ public final class LinServer implements AutoCloseable {
     @Override
     public void close() {
         if (!closed.compareAndSet(false, true)) return;
-        sessions.forEach(PtySession::close);
+        sessions.values().forEach(PtySession::close);
+        sessionCleanup.shutdownNow();
         try {
             serverSocket.close();
         } catch (IOException ignored) {

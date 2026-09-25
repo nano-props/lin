@@ -41,7 +41,10 @@ final class WebSocketConnection {
 
     void run(PtySession session) throws IOException {
         session.start(80, 24);
+        if (!session.isAlive()) throw new IOException("terminal session has exited");
+        var attachment = session.attach(this::sendOutput, this::sendExit);
         sendMetadata(session.processName());
+        session.replay(attachment);
         ByteArrayOutputStream fragmented = null;
         var fragmentedOpcode = -1;
 
@@ -80,6 +83,7 @@ final class WebSocketConnection {
             }
         } finally {
             open.set(false);
+            session.detach(attachment);
         }
     }
 

@@ -69,6 +69,7 @@ export const TerminalPane = defineComponent({
   name: 'TerminalPane',
   props: {
     sessionId: { type: Number, required: true },
+    sessionKey: { type: String, required: true },
     active: { type: Boolean, required: true },
     theme: { type: String as PropType<ThemeMode>, required: true },
     onStateChange: Function as PropType<(state: TerminalSessionState) => void>,
@@ -167,7 +168,7 @@ export const TerminalPane = defineComponent({
       terminal.loadAddon(searchAddon)
       terminal.open(host.value)
 
-      socket = new WebSocket(webSocketUrl())
+      socket = new WebSocket(webSocketUrl(props.sessionKey))
       socket.binaryType = 'arraybuffer'
       terminal.onData((data) => send(encodeTerminalInput(data)))
       terminal.onBinary((data) => send(encodeTerminalBinaryInput(data)))
@@ -278,9 +279,9 @@ export const TerminalPane = defineComponent({
   },
 })
 
-function webSocketUrl(): string {
+function webSocketUrl(sessionKey: string): string {
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${protocol}//${location.host}/ws`
+  return `${protocol}//${location.host}/ws?session=${encodeURIComponent(sessionKey)}`
 }
 
 function resolvedTerminalTheme(mode: ThemeMode) {
