@@ -238,18 +238,18 @@ button {
   white-space: nowrap;
 }
 
-.tab:hover .goblin-tab-close,
-.tab--active .goblin-tab-close,
-.goblin-tab-close:focus-visible {
+.tab:hover .tab-close,
+.tab--active .tab-close,
+.tab-close:focus-visible {
   opacity: 1;
 }
 
-.goblin-tab-close:hover {
+.tab-close:hover {
   background: #ffffff12;
   color: #fff;
 }
 
-.goblin-tab-close svg,
+.tab-close svg,
 .new-tab svg {
   width: 14px;
   height: 14px;
@@ -259,7 +259,7 @@ button {
   stroke-width: 1.4;
 }
 
-.goblin-tab-button {
+.tab-button {
   display: flex;
   width: 100%;
   min-width: 0;
@@ -276,7 +276,7 @@ button {
   cursor: pointer;
 }
 
-.goblin-tab-close {
+.tab-close {
   position: relative;
   z-index: 10;
   display: grid;
@@ -294,17 +294,17 @@ button {
     opacity 100ms ease;
 }
 
-.goblin-tab-close.visible {
+.tab-close.visible {
   opacity: 1;
   pointer-events: auto;
 }
 
-.goblin-tab-close.placeholder {
+.tab-close.placeholder {
   visibility: hidden;
 }
 
-.tab:hover .goblin-tab-close.hidden,
-.tab:focus-within .goblin-tab-close.hidden {
+.tab:hover .tab-close.hidden,
+.tab:focus-within .tab-close.hidden {
   opacity: 1;
   pointer-events: auto;
 }

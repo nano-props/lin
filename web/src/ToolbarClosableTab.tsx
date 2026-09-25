@@ -1,7 +1,7 @@
 import { X } from '@lucide/vue'
 import type { ButtonHTMLAttributes, FunctionalComponent, HTMLAttributes, VNodeChild } from 'vue'
-import { toButtonVNodeRef, toDivVNodeRef } from '#/goblin-refs.ts'
-import type { ElementRef } from '#/goblin-refs.ts'
+import { toButtonVNodeRef, toDivVNodeRef } from '#/vnode-refs.ts'
+import type { ElementRef } from '#/vnode-refs.ts'
 
 type DataAttributes = { [K in `data-${string}`]?: string | boolean | undefined }
 type ToolbarClosableTabContainerProps = Omit<HTMLAttributes, 'class'> & DataAttributes
@@ -41,11 +41,11 @@ export const ToolbarClosableTab: FunctionalComponent<ToolbarClosableTabProps> = 
       ref={toButtonVNodeRef(props.buttonRef)}
       type="button"
       {...props.buttonProps}
-      class={['goblin-tab-button', props.buttonClass]}
+      class={['tab-button', props.buttonClass]}
     >
       {slots.default?.()}
       {props.close?.kind === 'placeholder' ? (
-        <span aria-hidden="true" class="goblin-tab-close placeholder">
+        <span aria-hidden="true" class="tab-close placeholder">
           <X size={14} />
         </span>
       ) : null}
@@ -57,7 +57,7 @@ export const ToolbarClosableTab: FunctionalComponent<ToolbarClosableTabProps> = 
           onPointerdown={(event) => event.stopPropagation()}
           onMousedown={(event) => event.stopPropagation()}
           onClick={props.close.disabled ? undefined : props.close.onClose}
-          class={['goblin-tab-close', props.close.visible ? 'visible' : 'hidden']}
+          class={['tab-close', props.close.visible ? 'visible' : 'hidden']}
           title={props.close.label}
         >
           <X size={14} />
