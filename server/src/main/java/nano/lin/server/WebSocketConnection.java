@@ -1,6 +1,7 @@
 package nano.lin.server;
 
 import nano.lin.pty.PtySession;
+import nano.lin.terminal.TerminalState;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
@@ -12,6 +13,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
+import java.util.ArrayDeque;
+import java.net.Socket;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 final class WebSocketConnection {
@@ -20,15 +23,23 @@ final class WebSocketConnection {
 
     private final DataInputStream input;
     private final OutputStream output;
+    private static final int MAX_QUEUED_BYTES = 8 * 1024 * 1024;
+    private final Socket socket;
+    private final ArrayDeque<OutboundFrame> outgoing = new ArrayDeque<>();
+    private int queuedBytes;
+    private boolean closing;
+    private final Thread writer;
     private final Object outputLock = new Object();
     private final AtomicBoolean open = new AtomicBoolean(true);
 
-    private WebSocketConnection(InputStream input, OutputStream output) {
+    private WebSocketConnection(Socket socket, InputStream input, OutputStream output) {
+        this.socket = socket;
         this.input = new DataInputStream(input);
         this.output = output;
+        writer = Thread.ofVirtual().name("lin-websocket-output").start(this::writeFrames);
     }
 
-    static WebSocketConnection accept(InputStream input, OutputStream output, String key) throws IOException {
+    static WebSocketConnection accept(Socket socket, InputStream input, OutputStream output, String key) throws IOException {
         var accept = acceptKey(key);
         var response = "HTTP/1.1 101 Switching Protocols\r\n"
             + "Upgrade: websocket\r\n"
@@ -36,15 +47,19 @@ final class WebSocketConnection {
             + "Sec-WebSocket-Accept: " + accept + "\r\n\r\n";
         output.write(response.getBytes(StandardCharsets.US_ASCII));
         output.flush();
-        return new WebSocketConnection(input, output);
+        return new WebSocketConnection(socket, input, output);
     }
 
     void run(PtySession session) throws IOException {
+        try { runAttached(session); }
+        finally { abort(); }
+    }
+
+    private void runAttached(PtySession session) throws IOException {
         session.start(80, 24);
         if (!session.isAlive()) throw new IOException("terminal session has exited");
-        var attachment = session.attach(this::sendOutput, this::sendExit);
         sendMetadata(session.processName());
-        session.replay(attachment);
+        var attachment = session.attach(this::sendSnapshot, this::sendOutput, this::sendResize, this::sendExit);
         ByteArrayOutputStream fragmented = null;
         var fragmentedOpcode = -1;
 
@@ -53,6 +68,8 @@ final class WebSocketConnection {
                 var frame = readFrame();
                 if (frame.opcode == 0x8) {
                     sendClose(frame.payload);
+                    try { writer.join(1000); }
+                    catch (InterruptedException error) { Thread.currentThread().interrupt(); }
                     return;
                 }
                 if (frame.opcode == 0x9) {
@@ -82,9 +99,24 @@ final class WebSocketConnection {
                 }
             }
         } finally {
-            open.set(false);
+            abort();
             session.detach(attachment);
         }
+    }
+
+    private void sendResize(int cols, int rows) {
+        sendBinary(ByteBuffer.allocate(5).put((byte)5).putShort((short)cols).putShort((short)rows).array());
+    }
+
+    private void sendSnapshot(TerminalState.Snapshot snapshot) {
+        sendBinary(snapshotPayload(snapshot));
+    }
+
+    static byte[] snapshotPayload(TerminalState.Snapshot snapshot) {
+        var title = snapshot.title().replaceAll("[\\x00-\\x1f\\x7f]", "");
+        var content = ((title.isEmpty() ? "" : "\033]2;" + title + "\007") + snapshot.content()).getBytes(StandardCharsets.UTF_8);
+        return ByteBuffer.allocate(5 + content.length).put((byte)4)
+            .putShort((short)snapshot.cols()).putShort((short)snapshot.rows()).put(content).array();
     }
 
     private void sendMetadata(String processName) { sendBinary(metadataPayload(processName)); }
@@ -103,7 +135,7 @@ final class WebSocketConnection {
         try {
             sendFrame(0x2, bytes);
         } catch (IOException error) {
-            open.set(false);
+            abort();
         }
     }
 
@@ -122,7 +154,7 @@ final class WebSocketConnection {
         try {
             sendClose(closePayload(1000, "shell exited"));
         } catch (IOException ignored) {
-            open.set(false);
+            abort();
         }
     }
 
@@ -170,32 +202,80 @@ final class WebSocketConnection {
     }
 
     private void sendClose(byte[] payload) throws IOException {
-        if (!open.compareAndSet(true, false)) return;
-        sendFrameUnchecked(0x8, payload);
+        sendFrame(0x8, payload);
     }
 
     private void sendFrame(int opcode, byte[] payload) throws IOException {
-        if (!open.get()) throw new IOException("WebSocket is closed");
-        sendFrameUnchecked(opcode, payload);
+        boolean overflow = false;
+        synchronized (outputLock) {
+            if (!open.get()) throw new IOException("WebSocket is closed");
+            if (closing) return;
+            // The one initial screen snapshot has its own bounded terminal model.
+            // Budget live output separately so a large snapshot can be delivered.
+            int weight = opcode == 2 && payload.length > 0 && payload[0] == 4 ? 0 : payload.length;
+            if (outgoing.size() >= 256 || queuedBytes + weight > MAX_QUEUED_BYTES) {
+                overflow = true;
+            } else {
+                if (opcode == 8) closing = true;
+                queuedBytes += weight;
+                outgoing.addLast(new OutboundFrame(opcode, payload, weight));
+                outputLock.notifyAll();
+            }
+        }
+        // A slow viewer must never block PTY output or another viewer. Its next
+        // connection restores the authoritative screen instead of missing bytes.
+        if (overflow) abort();
     }
 
-    private void sendFrameUnchecked(int opcode, byte[] payload) throws IOException {
-        synchronized (outputLock) {
-            output.write(0x80 | opcode);
-            if (payload.length <= 125) {
-                output.write(payload.length);
-            } else if (payload.length <= 65_535) {
-                output.write(126);
-                output.write((payload.length >>> 8) & 0xFF);
-                output.write(payload.length & 0xFF);
-            } else {
-                output.write(127);
-                output.write(new byte[]{0, 0, 0, 0});
-                output.write(ByteBuffer.allocate(4).putInt(payload.length).array());
+    private void writeFrames() {
+        try {
+            while (open.get()) {
+                OutboundFrame frame;
+                synchronized (outputLock) {
+                    while (open.get() && outgoing.isEmpty()) outputLock.wait();
+                    if (!open.get()) return;
+                    frame = outgoing.removeFirst();
+                    queuedBytes -= frame.weight;
+                }
+                sendFrameUnchecked(frame.opcode, frame.payload);
+                if (frame.opcode == 8) return;
             }
-            output.write(payload);
-            output.flush();
+        } catch (IOException ignored) {
+            // Closing the transport wakes the reader, which detaches this viewer.
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+        } finally {
+            abort();
         }
+    }
+
+    private void abort() {
+        open.set(false);
+        synchronized (outputLock) {
+            outgoing.clear();
+            queuedBytes = 0;
+            outputLock.notifyAll();
+        }
+        try { socket.close(); } catch (IOException ignored) { }
+    }
+
+    private record OutboundFrame(int opcode, byte[] payload, int weight) {}
+
+    private void sendFrameUnchecked(int opcode, byte[] payload) throws IOException {
+        output.write(0x80 | opcode);
+        if (payload.length <= 125) {
+            output.write(payload.length);
+        } else if (payload.length <= 65_535) {
+            output.write(126);
+            output.write((payload.length >>> 8) & 0xFF);
+            output.write(payload.length & 0xFF);
+        } else {
+            output.write(127);
+            output.write(new byte[]{0, 0, 0, 0});
+            output.write(ByteBuffer.allocate(4).putInt(payload.length).array());
+        }
+        output.write(payload);
+        output.flush();
     }
 
     private static void append(ByteArrayOutputStream destination, byte[] bytes) throws IOException {

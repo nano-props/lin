@@ -14,24 +14,18 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.stream.Collectors;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class LinServer implements AutoCloseable {
     private static final String AUTH_COOKIE = "lin_access";
     private final ServerConfig config;
     private final ServerSocket serverSocket = new ServerSocket();
-    private static final long SESSION_GRACE_SECONDS = 30;
-    private final ConcurrentHashMap<String, PtySession> sessions = new ConcurrentHashMap<>();
-    private final ScheduledExecutorService sessionCleanup = Executors.newSingleThreadScheduledExecutor(r -> {
-        var thread = new Thread(r, "lin-session-cleanup");
-        thread.setDaemon(true);
-        return thread;
-    });
+    // Insertion order is the shared tab order. Never close a session under this lock.
+    private final LinkedHashMap<String, PtySession> sessions = new LinkedHashMap<>();
     private final CountDownLatch stopped = new CountDownLatch(1);
     private final AtomicBoolean closed = new AtomicBoolean();
     private final HttpRouter router;
@@ -44,6 +38,7 @@ public final class LinServer implements AutoCloseable {
         router = new HttpRouter()
             .route("/api/auth", exchange -> authenticate(exchange.output(), exchange.input(), exchange.request()))
             .route("/api/auth/status", exchange -> authStatus(exchange.output(), exchange.request()))
+            .route("/api/sessions", this::sessionApi)
             .route("/ws", exchange -> upgradeWebSocket(exchange.socket(), exchange.input(), exchange.output(), exchange.request(), exchange.target()))
             .fallback(resources::serve);
     }
@@ -116,14 +111,53 @@ public final class LinServer implements AutoCloseable {
 
         socket.setSoTimeout(0);
         var sessionId = sessionId(target);
-        var connection = WebSocketConnection.accept(input, output, key);
-        var session = sessions.computeIfAbsent(sessionId, id -> new PtySession(exitCode -> sessions.remove(id)));
-        try {
-            connection.run(session);
-        } finally {
-            sessionCleanup.schedule(() -> {
-                if (session.isDetached() && sessions.remove(sessionId, session)) session.close();
-            }, SESSION_GRACE_SECONDS, TimeUnit.SECONDS);
+        PtySession session;
+        synchronized (sessions) { session = sessions.get(sessionId); }
+        if (session == null) { HttpResponse.error(output, 404, "Terminal session not found"); return; }
+        var connection = WebSocketConnection.accept(socket, input, output, key);
+        connection.run(session);
+    }
+
+    private void sessionApi(HttpExchange exchange) throws IOException {
+        var request = exchange.request();
+        var output = exchange.output();
+        if (!authenticated(request)) { HttpResponse.error(output, 401, "Authentication required"); return; }
+        if ("GET".equals(request.method())) {
+            String json;
+            synchronized (sessions) {
+                json = sessions.keySet().stream().map(id -> "\"" + id + "\"").collect(Collectors.joining(",", "[", "]"));
+            }
+            HttpResponse.write(output, 200, "OK", "application/json", json.getBytes(StandardCharsets.UTF_8), false, null);
+            return;
+        }
+        if (!validOrigin(request.header("origin"), request.header("host"))) {
+            HttpResponse.error(output, 403, "Invalid session request"); return;
+        }
+        if ("POST".equals(request.method())) {
+            var id = UUID.randomUUID().toString();
+            var session = new PtySession(code -> { synchronized (sessions) { sessions.remove(id); } });
+            synchronized (sessions) {
+                if (closed.get()) { HttpResponse.error(output, 503, "Server is stopping"); return; }
+                sessions.put(id, session);
+            }
+            try { session.start(80, 24); }
+            catch (IOException | RuntimeException error) {
+                synchronized (sessions) { sessions.remove(id); }
+                session.close();
+                HttpResponse.error(output, 500, "Unable to start terminal");
+                return;
+            }
+            HttpResponse.write(output, 201, "Created", "application/json", ("\"" + id + "\"").getBytes(StandardCharsets.UTF_8), false, null);
+        } else if ("DELETE".equals(request.method())) {
+            final String id;
+            try { id = sessionId(exchange.target()); }
+            catch (IOException error) { HttpResponse.error(output, 400, "Invalid terminal session id"); return; }
+            PtySession session;
+            synchronized (sessions) { session = sessions.remove(id); }
+            if (session != null) session.close();
+            HttpResponse.write(output, 204, "No Content", "text/plain", new byte[0], false, null);
+        } else {
+            HttpResponse.error(output, 405, "Method not allowed");
         }
     }
 
@@ -203,8 +237,9 @@ public final class LinServer implements AutoCloseable {
     @Override
     public void close() {
         if (!closed.compareAndSet(false, true)) return;
-        sessions.values().forEach(PtySession::close);
-        sessionCleanup.shutdownNow();
+        List<PtySession> remaining;
+        synchronized (sessions) { remaining = List.copyOf(sessions.values()); sessions.clear(); }
+        remaining.forEach(PtySession::close);
         try {
             serverSocket.close();
         } catch (IOException ignored) {

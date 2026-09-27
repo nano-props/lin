@@ -1,6 +1,6 @@
 # lin
 
-`lin` is a local-first web terminal distributed as one Linux executable. It serves a Vue/xterm.js interface and starts one login-shell-backed PTY per browser tab.
+`lin` is a local-first web terminal distributed as one Linux executable. It serves a Vue/xterm.js interface and keeps login-shell-backed PTY sessions and terminal screens on the server.
 
 ## Requirements
 
@@ -56,3 +56,29 @@ Command-line arguments override environment variables. Non-loopback binding requ
 ## Platform
 
 The PTY shim supports Linux x86_64 and macOS arm64. Intel macOS is not supported.
+
+## Session lifetime and restoration
+
+Sessions and their creation order belong to the running server. Refreshing,
+closing a browser window or disconnecting does not end a session. Opening the
+same server again restores its tabs, screen, colors, cursor and recent history.
+Only closing a terminal tab, exiting its shell or stopping lin ends the session.
+The selected tab is a per-browser preference.
+
+The server runs xterm headless in embedded GraalJS and retains up to 10,000
+scrollback lines per terminal, plus its current normal/alternate screen. Output
+continues to update this model while disconnected. The browser restores a
+snapshot before consuming live output and retries interrupted connections.
+History and sessions are in memory, not persisted across server restarts.
+Multiple browser windows share the same session list and shell processes.
+
+GraalJS is embedded in the native executable; no Node/Bun process is required at
+runtime. This increases binary size and build/runtime memory compared to a
+server that only forwards PTY bytes.
+
+## Appearance
+
+The UI follows Goblin's default macOS palette and compact toolbar styling.
+Light, dark and system themes share CSS design tokens in `web/src/theme/`;
+xterm reads the same tokens rather than maintaining a separate color palette.
+See [the token contract](web/src/theme/README.md).

@@ -41,3 +41,17 @@ export function decodeProcessName(bytes: Uint8Array<ArrayBufferLike>): string | 
   if (bytes[0] !== SERVER_METADATA || bytes.length < 2) return null
   return new TextDecoder().decode(bytes.subarray(1))
 }
+
+export function decodeTerminalSnapshot(
+  bytes: Uint8Array<ArrayBufferLike>,
+): { cols: number; rows: number; content: Uint8Array<ArrayBufferLike> } | null {
+  if (bytes[0] !== 4 || bytes.length < 5) return null
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  return { cols: view.getUint16(1), rows: view.getUint16(3), content: bytes.subarray(5) }
+}
+
+export function decodeServerResize(bytes: Uint8Array<ArrayBufferLike>): { cols: number; rows: number } | null {
+  if (bytes[0] !== 5 || bytes.length !== 5) return null
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  return { cols: view.getUint16(1), rows: view.getUint16(3) }
+}

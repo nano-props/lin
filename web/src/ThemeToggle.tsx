@@ -25,7 +25,7 @@ export const ThemeToggle = defineComponent({
         <Tip label={`${label} · click to switch`}>
           <button
             type="button"
-            class="grid size-6 place-items-center rounded bg-transparent text-[var(--muted)] hover:bg-[var(--acid-soft)] hover:text-[var(--acid)] focus-visible:bg-[var(--acid-soft)] focus-visible:text-[var(--acid)] focus-visible:outline-none"
+            class="theme-toggle"
             aria-label={`${label}; click to switch theme`}
             onClick={() => emit('update:modelValue', next)}
           >

@@ -1,6 +1,6 @@
-import { Plus } from '@lucide/vue'
+import { Plus, Terminal } from '@lucide/vue'
 import { useEventListener } from '@vueuse/core'
-import { computed, defineComponent, nextTick, onMounted, ref } from 'vue'
+import { computed, defineComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { PropType } from 'vue'
 import { ConnectionStatus } from '#/ConnectionStatus.tsx'
 import { TerminalPane } from '#/TerminalPane.tsx'
@@ -17,7 +17,7 @@ interface TerminalTab {
   state: TerminalSessionState
 }
 
-const SESSION_STORAGE_KEY = 'lin-terminal-sessions'
+const ACTIVE_STORAGE_KEY = 'lin-active-terminal'
 
 export const App = defineComponent({
   name: 'App',
@@ -36,36 +36,122 @@ export const App = defineComponent({
       return 'offline'
     })
 
-    const saveSessions = (): void => {
-      sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(tabs.value.map((tab) => tab.sessionKey)))
+    const sessionError = ref('')
+    const mutating = ref(false)
+    let sessionRevision = 0
+    let syncing = false
+    let pollTimer: ReturnType<typeof setInterval> | undefined
+
+    const addTab = (sessionKey: string): TerminalTab => {
+      const tab: TerminalTab = { id: nextId++, sessionKey, title: 'shell', state: 'connecting' }
+      tabs.value.push(tab)
+      return tab
     }
 
-    const createTerminal = (sessionKey: string = crypto.randomUUID()): void => {
-      if (!authenticated.value) return
-      const id = nextId++
-      tabs.value.push({ id, sessionKey, title: 'shell', state: 'connecting' })
-      activeId.value = String(id)
-      saveSessions()
-      nextTick(() => {
-        document.querySelector<HTMLElement>(`[data-terminal-tab="${id}"]`)?.scrollIntoView({
+    const syncSessions = async (): Promise<void> => {
+      if (!authenticated.value || mutating.value || syncing) return
+      syncing = true
+      const revision = sessionRevision
+      try {
+        const response = await fetch('/api/sessions', { credentials: 'same-origin' })
+        if (!response.ok) throw new Error('Unable to load terminal sessions')
+        const keys: string[] = await response.json()
+        if (revision !== sessionRevision) return
+        const current = tabs.value.find((tab) => String(tab.id) === activeId.value)?.sessionKey
+        const existing = new Map(tabs.value.map((tab) => [tab.sessionKey, tab]))
+        tabs.value = keys.map(
+          (key) =>
+            existing.get(key) ?? {
+              id: nextId++,
+              sessionKey: key,
+              title: 'shell',
+              state: 'connecting',
+            },
+        )
+        let preferred = current
+        try {
+          preferred ??= sessionStorage.getItem(ACTIVE_STORAGE_KEY) ?? undefined
+        } catch {
+          /* Storage may be disabled. */
+        }
+        const selected = tabs.value.find((tab) => tab.sessionKey === preferred) ?? tabs.value[0]
+        activeId.value = selected ? String(selected.id) : ''
+        sessionError.value = ''
+      } catch {
+        sessionError.value = 'Unable to load terminal sessions. Retrying…'
+      } finally {
+        syncing = false
+      }
+    }
+
+    const createTerminal = async (): Promise<void> => {
+      if (!authenticated.value || mutating.value) return
+      mutating.value = true
+      sessionRevision++
+      try {
+        const response = await fetch('/api/sessions', { method: 'POST', credentials: 'same-origin' })
+        if (!response.ok) throw new Error('Unable to create terminal')
+        const tab = addTab(await response.json())
+        activeId.value = String(tab.id)
+        sessionError.value = ''
+        await nextTick()
+        document.querySelector<HTMLElement>(`[data-terminal-tab="${tab.id}"]`)?.scrollIntoView({
           block: 'nearest',
           inline: 'nearest',
         })
-      })
+      } catch {
+        sessionError.value = 'Unable to create terminal. Please try again.'
+      } finally {
+        mutating.value = false
+      }
     }
 
-    const closeTerminal = (id: number): void => {
-      const index = tabs.value.findIndex((tab) => tab.id === id)
-      if (index < 0) return
-      const wasActive = activeId.value === String(id)
-      tabs.value.splice(index, 1)
-      saveSessions()
-      if (wasActive) {
-        const replacement = tabs.value[Math.min(index, tabs.value.length - 1)]
-        activeId.value = replacement ? String(replacement.id) : ''
+    const closeTerminal = async (id: number): Promise<void> => {
+      const tab = tabs.value.find((tab) => tab.id === id)
+      if (!tab || mutating.value) return
+      mutating.value = true
+      sessionRevision++
+      try {
+        const response = await fetch(`/api/sessions?session=${encodeURIComponent(tab.sessionKey)}`, {
+          method: 'DELETE',
+          credentials: 'same-origin',
+        })
+        if (!response.ok) throw new Error('Unable to close terminal')
+        const index = tabs.value.findIndex((tab) => tab.id === id)
+        tabs.value.splice(index, 1)
+        if (activeId.value === String(id)) {
+          const replacement = tabs.value[Math.min(index, tabs.value.length - 1)]
+          activeId.value = replacement ? String(replacement.id) : ''
+        }
+        sessionError.value = ''
+      } catch {
+        sessionError.value = 'Unable to close terminal. Please try again.'
+      } finally {
+        mutating.value = false
       }
-      if (tabs.value.length === 0) createTerminal()
+      if (tabs.value.length === 0) await createTerminal()
     }
+
+    watch(activeId, () => {
+      const key = tabs.value.find((tab) => String(tab.id) === activeId.value)?.sessionKey
+      try {
+        if (key) sessionStorage.setItem(ACTIVE_STORAGE_KEY, key)
+      } catch {
+        /* Storage may be disabled. */
+      }
+    })
+
+    const restoreSessions = async (): Promise<void> => {
+      await syncSessions()
+      if (!sessionError.value && tabs.value.length === 0) await createTerminal()
+      pollTimer ??= setInterval(() => {
+        void syncSessions()
+      }, 5000)
+    }
+    useEventListener(window, 'focus', () => {
+      void syncSessions()
+    })
+    onBeforeUnmount(() => clearInterval(pollTimer))
 
     const updateTab = (id: number, update: Partial<Pick<TerminalTab, 'title' | 'state'>>): void => {
       const tab = tabs.value.find((candidate) => candidate.id === id)
@@ -114,9 +200,7 @@ export const App = defineComponent({
       } finally {
         checkingAuth.value = false
         if (authenticated.value) {
-          const saved = readSessions()
-          if (saved.length > 0) saved.forEach((sessionKey) => createTerminal(sessionKey))
-          else createTerminal()
+          await restoreSessions()
         }
       }
     })
@@ -136,7 +220,7 @@ export const App = defineComponent({
               })
               if (!response.ok) return false
               authenticated.value = true
-              createTerminal()
+              await restoreSessions()
               return true
             }}
           />
@@ -145,9 +229,8 @@ export const App = defineComponent({
         <main class="shell" aria-label="lin web terminal">
           <header class="topbar">
             <div class="identity" aria-label="lin">
-              <span class="identity__mark" aria-hidden="true">
-                λ
-              </span>
+              <Terminal class="identity__mark" size={16} strokeWidth={1.7} aria-hidden="true" />
+              <span class="identity__name">lin</span>
             </div>
             <div class="tabs" role="tablist" aria-label="Terminal sessions">
               {tabs.value.map((tab) => (
@@ -177,6 +260,7 @@ export const App = defineComponent({
                   close={{
                     kind: 'action',
                     label: 'Close terminal',
+                    disabled: mutating.value,
                     visible: activeId.value === String(tab.id),
                     onClose: (event) => {
                       event.preventDefault()
@@ -190,7 +274,13 @@ export const App = defineComponent({
                 </ToolbarClosableTab>
               ))}
               <Tip label="New terminal · Ctrl/⌘ T">
-                <button class="new-tab" type="button" aria-label="New terminal" onClick={() => createTerminal()}>
+                <button
+                  class="new-tab"
+                  type="button"
+                  aria-label="New terminal"
+                  disabled={mutating.value}
+                  onClick={() => createTerminal()}
+                >
                   <Plus size={15} strokeWidth={1.5} aria-hidden="true" />
                 </button>
               </Tip>
@@ -198,6 +288,11 @@ export const App = defineComponent({
             <ConnectionStatus state={connectionState.value} />
             <ThemeToggle modelValue={theme.value} onUpdate:modelValue={setTheme} />
           </header>
+          {sessionError.value ? (
+            <div class="session-error" role="alert">
+              {sessionError.value}
+            </div>
+          ) : null}
           <div class="terminals">
             {tabs.value.map((tab) => (
               <div
@@ -212,7 +307,6 @@ export const App = defineComponent({
                   sessionId={tab.id}
                   sessionKey={tab.sessionKey}
                   active={activeId.value === String(tab.id)}
-                  theme={theme.value}
                   onStateChange={(state) => updateTab(tab.id, { state })}
                   onTitleChange={(title) => updateTab(tab.id, { title })}
                 />
@@ -224,15 +318,6 @@ export const App = defineComponent({
     }
   },
 })
-
-function readSessions(): string[] {
-  try {
-    const value = JSON.parse(sessionStorage.getItem(SESSION_STORAGE_KEY) ?? '[]')
-    return Array.isArray(value) && value.every((item) => typeof item === 'string') ? value : []
-  } catch {
-    return []
-  }
-}
 
 function handleTabKeydown(event: KeyboardEvent, id: number): void {
   const tabs = Array.from(document.querySelectorAll<HTMLElement>('[data-terminal-tab]'))
@@ -268,9 +353,8 @@ const AccessRequired = defineComponent({
       <main class="shell shell--locked" aria-label="lin web terminal">
         <header class="topbar">
           <div class="identity" aria-label="lin">
-            <span class="identity__mark" aria-hidden="true">
-              λ
-            </span>
+            <Terminal class="identity__mark" size={16} strokeWidth={1.7} aria-hidden="true" />
+            <span class="identity__name">lin</span>
           </div>
           <div class="tabs" />
           <div class="connection connection--offline">

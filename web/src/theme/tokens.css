@@ -1,0 +1,38 @@
+@import './palette.css';
+
+/* Foundations → semantic component roles → xterm integration tokens.
+ * Change palette.css for colors; keep component CSS free of color literals. */
+:root {
+  --lin-font-sans:
+    -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', 'PingFang SC', 'Noto Sans SC', system-ui, sans-serif;
+  --lin-font-mono: 'Maple Mono', 'Cascadia Code', 'SFMono-Regular', monospace;
+  --lin-font-size-xs: 11px;
+  --lin-font-size-sm: 12px;
+  --lin-font-size-md: 13px;
+  --lin-font-size-title: 24px;
+  --lin-font-size-terminal: 14px;
+  --lin-line-height: 1.5;
+  --lin-line-height-terminal: 1.15;
+  --lin-space-1: 4px;
+  --lin-space-2: 8px;
+  --lin-space-3: 12px;
+  --lin-space-4: 16px;
+  --lin-space-5: 24px;
+  --lin-space-6: 32px;
+  --lin-radius-sm: 4px;
+  --lin-radius-md: 6px;
+  --lin-radius-lg: 8px;
+  --lin-radius-pill: 999px;
+  --lin-duration-fast: 120ms;
+  --lin-control-size-lg: 36px;
+  --lin-control-size: 28px;
+  --lin-toolbar-height: 40px;
+  --lin-tab-min-width: 104px;
+  --lin-tab-width: 160px;
+  --lin-tab-max-width: 220px;
+  --lin-focus-outline: 2px solid var(--lin-focus-ring);
+  --lin-toolbar-background: var(--lin-surface-navigation);
+  --lin-tab-selected-background: var(--lin-accent-selection);
+  --lin-tab-selected-text: var(--lin-accent-text);
+  --lin-scrollbar: var(--lin-border-strong);
+}

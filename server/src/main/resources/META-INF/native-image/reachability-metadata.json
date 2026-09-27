@@ -1,6 +1,9 @@
 {
   "resources": [
     {
+      "glob": "terminal/**"
+    },
+    {
       "glob": "web/**"
     },
     {

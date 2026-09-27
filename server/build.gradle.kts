@@ -39,6 +39,7 @@ val buildPtyShim = tasks.register<Exec>("buildPtyShim") {
 tasks.processResources {
     dependsOn(":web:buildWeb", buildPtyShim)
     from(project(":web").layout.projectDirectory.dir("dist")) { into("web") }
+    from(project(":web").layout.projectDirectory.dir("server-dist")) { into("terminal") }
     from(ptyResources)
 }
 
@@ -63,10 +64,13 @@ graalvmNative {
 }
 
 tasks.test {
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
     useJUnitPlatform()
 }
 
 dependencies {
+    implementation("org.graalvm.polyglot:polyglot:25.0.4")
+    runtimeOnly("org.graalvm.polyglot:js-community:25.0.4")
     testImplementation(platform("org.junit:junit-bom:6.0.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")

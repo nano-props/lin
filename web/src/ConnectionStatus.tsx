@@ -16,10 +16,7 @@ export const ConnectionStatus = defineComponent({
             ? 'linking'
             : 'offline'
       return (
-        <div
-          class={['connection', props.state === 'offline' && 'connection--offline']}
-          title={`${label} token-protected connection`}
-        >
+        <div class={['connection', `connection--${props.state}`]} title={`${label} token-protected connection`}>
           <span class="connection__dot" />
           <span>{label}</span>
         </div>
