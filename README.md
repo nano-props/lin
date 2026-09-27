@@ -20,6 +20,7 @@ Open the tokenized URL printed by `lin`.
 ```bash
 ./gradlew test nativeCompile
 ./server/build/native/nativeCompile/lin
+```
 
 The Gradle project is split into two subprojects:
 
@@ -27,7 +28,11 @@ The Gradle project is split into two subprojects:
 :server  Java server, PTY shim, and native image
 :web     Vue/xterm frontend
 ```
-```
+
+Gradle declares task dependencies and inputs/outputs. Shell scripts handle the build steps:
+
+- `scripts/build-web.sh` installs frontend dependencies and builds the web assets.
+- `scripts/build-pty-shim.sh [resource-directory]` detects the host platform, compiles the PTY library, and stages it under `native/<platform>/` for embedding. The default resource directory is `server/build/generated/pty-resources`; `CC` overrides the C compiler.
 
 The native executable embeds the frontend and PTY shim; it does not require a JVM at runtime.
 

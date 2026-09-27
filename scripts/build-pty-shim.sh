@@ -10,16 +10,17 @@ fail() {
 
 project_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 source_file="$project_dir/server/src/main/c/linpty.c"
-output_dir="${LIN_NATIVE_OUTPUT_DIR:-$project_dir/build/native}"
+resource_dir="${1:-$project_dir/server/build/generated/pty-resources}"
 
 [[ -f "$source_file" ]] || fail "native source file is missing: $source_file"
-mkdir -p "$output_dir"
 
 os=$(uname -s)
 arch=$(uname -m)
 
 case "$os:$arch" in
   Darwin:arm64)
+  output_dir="$resource_dir/native/macos-aarch64"
+  mkdir -p "$output_dir"
   cc="${CC:-clang}"
   command -v "$cc" >/dev/null 2>&1 || fail "C compiler not found: $cc"
   "$cc" \
@@ -35,8 +36,11 @@ case "$os:$arch" in
     -o "$output_dir/liblinpty.dylib"
   ;;
   Linux:x86_64)
-  command -v gcc >/dev/null 2>&1 || fail "C compiler not found: gcc"
-  gcc \
+  output_dir="$resource_dir/native/linux-x86_64"
+  mkdir -p "$output_dir"
+  cc="${CC:-gcc}"
+  command -v "$cc" >/dev/null 2>&1 || fail "C compiler not found: $cc"
+  "$cc" \
     -std=c17 \
     -O2 \
     -fPIC \

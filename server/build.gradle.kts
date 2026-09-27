@@ -24,49 +24,28 @@ application {
     applicationDefaultJvmArgs = listOf("--enable-native-access=ALL-UNNAMED")
 }
 
-val hostOs = System.getProperty("os.name").lowercase()
-val hostArch = System.getProperty("os.arch").lowercase()
-val isMacOsArm64 = hostOs.contains("mac") && (hostArch == "aarch64" || hostArch == "arm64")
-val isLinuxX64 = hostOs.contains("linux") && (hostArch == "amd64" || hostArch == "x86_64")
-
-if (!isMacOsArm64 && !isLinuxX64) {
-    throw GradleException("Unsupported host: ${System.getProperty("os.name")} ${System.getProperty("os.arch")}; supported targets are Linux x86_64 and macOS arm64")
-}
-
-val nativeLibraryName = if (isMacOsArm64) "liblinpty.dylib" else "liblinpty.so"
-val nativeResourceDirectory = if (isMacOsArm64) "native/macos-aarch64" else "native/linux-x86_64"
-val nativeLibrary = layout.buildDirectory.file("native/$nativeLibraryName")
-val nativeLibraryPath = nativeLibrary.get().asFile.absolutePath
-val webProject = project(":web")
+val ptyResources = layout.buildDirectory.dir("generated/pty-resources")
 
 val buildPtyShim = tasks.register<Exec>("buildPtyShim") {
-    description = "Build the native PTY shim"
-    commandLine("bash", rootProject.file("scripts/build-pty-shim.sh").absolutePath)
-    environment("LIN_NATIVE_OUTPUT_DIR", nativeLibrary.get().asFile.parentFile.absolutePath)
-    inputs.file("src/main/c/linpty.c")
-    outputs.file(nativeLibrary)
+    description = "Build and stage the native PTY resources"
+    commandLine("bash", rootProject.file("scripts/build-pty-shim.sh"), ptyResources.get().asFile)
+    inputs.files("src/main/c/linpty.c", rootProject.file("scripts/build-pty-shim.sh"))
+    inputs.property("os", System.getProperty("os.name"))
+    inputs.property("arch", System.getProperty("os.arch"))
+    inputs.property("compiler", providers.environmentVariable("CC").orElse(""))
+    outputs.dir(ptyResources)
 }
 
 tasks.processResources {
     dependsOn(":web:buildWeb", buildPtyShim)
-    from(webProject.layout.projectDirectory.dir("dist")) {
-        into("web")
-    }
-    from(nativeLibrary) {
-        into(nativeResourceDirectory)
-    }
+    from(project(":web").layout.projectDirectory.dir("dist")) { into("web") }
+    from(ptyResources)
 }
 
 tasks.jar {
     manifest {
         attributes["Main-Class"] = application.mainClass.get()
     }
-}
-
-tasks.named<JavaExec>("run") {
-    dependsOn(buildPtyShim)
-    jvmArgs("--enable-native-access=ALL-UNNAMED")
-    systemProperty("lin.native.library", nativeLibraryPath)
 }
 
 graalvmNative {
@@ -81,10 +60,6 @@ graalvmNative {
             )
         }
     }
-}
-
-tasks.matching { it.name == "nativeCompile" }.configureEach {
-    dependsOn(":web:buildWeb", buildPtyShim)
 }
 
 tasks.test {
