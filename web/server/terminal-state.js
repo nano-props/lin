@@ -1,4 +1,4 @@
-import './runtime.js'
+import './xterm-env.js'
 import { Terminal } from '@xterm/headless'
 import { SerializeAddon } from '@xterm/addon-serialize'
 
