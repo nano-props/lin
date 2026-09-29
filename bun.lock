@@ -6,7 +6,7 @@
       "name": "lin",
       "devDependencies": {
         "@types/bun": "1.4.2",
-        "prettier": "^3.9.6",
+        "prettier": "3.9.9",
         "typescript": "7.0.2",
       },
     },
@@ -34,7 +34,7 @@
       "devDependencies": {
         "@tailwindcss/vite": "4.3.3",
         "@vitejs/plugin-vue-jsx": "5.1.6",
-        "prettier": "^3.9.6",
+        "prettier": "3.9.9",
         "tailwindcss": "4.3.3",
         "typescript": "7.0.2",
         "vite": "8.2.2",
