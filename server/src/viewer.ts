@@ -2,6 +2,7 @@ import type { ServerWebSocket } from 'bun'
 import type { Viewer } from './session'
 
 export class SocketViewer implements Viewer {
+  readonly id = crypto.randomUUID()
   private snapshotAllowance = 0
   constructor(private socket: ServerWebSocket<unknown>) {}
   get open() {

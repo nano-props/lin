@@ -1,3 +1,4 @@
+import { isImeOwnedKeyboardEvent } from '#/terminal-keyboard.ts'
 import { Plus, Terminal } from '@lucide/vue'
 import { useEventListener } from '@vueuse/core'
 import { computed, defineComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
@@ -20,6 +21,15 @@ const ACTIVE_STORAGE_KEY = 'lin-active-terminal'
 export const App = defineComponent({
   name: 'App',
   setup() {
+    const updateViewport = () => {
+      const viewport = window.visualViewport
+      document.documentElement.style.setProperty(
+        '--lin-viewport-height',
+        viewport && viewport.scale === 1 ? `${viewport.height}px` : '100%',
+      )
+    }
+    useEventListener(window.visualViewport, 'resize', updateViewport)
+    onMounted(updateViewport)
     const authenticated = ref(false)
     const checkingAuth = ref(true)
     const authError = ref('')
@@ -152,7 +162,7 @@ export const App = defineComponent({
     }
 
     useEventListener(window, 'keydown', (event) => {
-      if (!(event.ctrlKey || event.metaKey) || event.altKey) return
+      if (isImeOwnedKeyboardEvent(event) || !(event.ctrlKey || event.metaKey) || event.altKey) return
       const key = event.key.toLowerCase()
       if (key === 't') {
         event.preventDefault()
@@ -241,12 +251,6 @@ export const App = defineComponent({
                     tabIndex: activeId.value === String(tab.id) ? 0 : -1,
                     onClick: () => {
                       activeId.value = String(tab.id)
-                      requestAnimationFrame(() =>
-                        document
-                          .querySelector<HTMLElement>(`[data-terminal-tab="${tab.id}"] .terminal-host`)
-                          ?.querySelector<HTMLElement>('.xterm-helper-textarea')
-                          ?.focus(),
-                      )
                     },
                     onKeydown: (event) => handleTabKeydown(event, tab.id),
                   }}
@@ -316,6 +320,7 @@ export const App = defineComponent({
 })
 
 function handleTabKeydown(event: KeyboardEvent, id: number): void {
+  if (isImeOwnedKeyboardEvent(event)) return
   const tabs = Array.from(document.querySelectorAll<HTMLElement>('[data-terminal-tab]'))
   const index = tabs.findIndex((tab) => tab.dataset.terminalTab === String(id))
   if (event.key === 'Delete') {

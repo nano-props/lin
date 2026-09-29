@@ -38,7 +38,7 @@ button:focus-visible {
   display: flex;
   flex-direction: column;
   width: 100%;
-  height: 100%;
+  height: var(--lin-viewport-height, 100%);
   background: var(--lin-surface-canvas);
 }
 .topbar {
@@ -358,5 +358,52 @@ button:disabled {
     scroll-behavior: auto !important;
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+.terminal-control,
+.terminal-upload {
+  position: absolute;
+  top: var(--lin-space-2);
+  right: var(--lin-space-3);
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  gap: var(--lin-space-2);
+  padding: var(--lin-space-1) var(--lin-space-2);
+  border: 1px solid var(--lin-border-default);
+  border-radius: var(--lin-radius-md);
+  background: var(--lin-surface-overlay);
+  font-size: var(--lin-font-size-sm);
+}
+.terminal-control button,
+.terminal-mobile-keys button {
+  border: 1px solid var(--lin-border-default);
+  border-radius: var(--lin-radius-sm);
+  padding: var(--lin-space-1) var(--lin-space-2);
+  background: var(--lin-surface-raised);
+  color: var(--lin-text-primary);
+}
+.terminal-mobile-keys {
+  display: none;
+}
+@media (pointer: coarse) {
+  .terminal-frame {
+    padding-bottom: 48px;
+  }
+  .terminal-mobile-keys {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    overflow-x: auto;
+    background: var(--lin-toolbar-background);
+  }
+  .terminal-mobile-keys button {
+    min-height: 36px;
+    flex: 1 0 auto;
   }
 }

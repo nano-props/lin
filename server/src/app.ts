@@ -10,6 +10,7 @@ import type { ServerConfig } from './config'
 import { Session } from './session'
 import { SocketViewer } from './viewer'
 import { decodeInput } from './protocol'
+import { UploadStore, uploadBodyLimit } from './uploads'
 
 export type Assets = Map<string, string>
 const cookieName = 'lin_access'
@@ -34,6 +35,7 @@ function rememberLogin(c: Context, token: string) {
 }
 
 export function startServer(config: ServerConfig, assets?: Assets) {
+  const uploads = new UploadStore()
   const sessions = new Map<string, Session>()
   const closingSessions = new Set<Promise<void>>()
   function closeSession(session: Session) {
@@ -45,7 +47,7 @@ export function startServer(config: ServerConfig, assets?: Assets) {
     )
     return closing
   }
-  const app = new Hono()
+  const app = new Hono<{ Variables: { uploadPermit: () => boolean } }>()
   let stopping = false
   app.use('*', async (c, next) => {
     if (stopping) return c.text('Server is stopping', 503)
@@ -101,6 +103,28 @@ export function startServer(config: ServerConfig, assets?: Assets) {
     if (session) await closeSession(session)
     return c.body(null, 204)
   })
+  app.post(
+    '/api/uploads',
+    async (c, next) => {
+      const session = sessions.get(c.req.query('session') ?? '')
+      const permitted = session?.uploadPermit(c.req.query('viewer') ?? '')
+      if (!permitted) return c.text('Take control of this terminal before uploading files.', 403)
+      c.set('uploadPermit', permitted)
+      await next()
+    },
+    bodyLimit({ maxSize: uploadBodyLimit }),
+    async (c) => {
+      try {
+        const form = await c.req.formData()
+        const values = form.getAll('files')
+        if (!values.every((file) => file instanceof File)) return c.text('Invalid upload files', 400)
+        const paths = await uploads.save(values as File[], c.get('uploadPermit'))
+        return c.json(paths)
+      } catch (error) {
+        return c.text(error instanceof Error ? error.message : 'Unable to upload files', 400)
+      }
+    },
+  )
   app.get('/ws', async (c, next) => {
     const id = c.req.query('session') ?? ''
     if (!uuid.test(id)) return c.text('Invalid terminal session id', 400)
@@ -118,8 +142,7 @@ export function startServer(config: ServerConfig, assets?: Assets) {
           const message = decodeInput(
             typeof event.data === 'string' ? event.data : new Uint8Array(event.data as ArrayBuffer),
           )
-          if ('input' in message) session.write(message.input)
-          else void session.resize(message.cols, message.rows).catch(() => ws.close(1011, 'resize failed'))
+          if (viewer) void session.handle(viewer, message).catch(() => ws.close(1011, 'terminal input failed'))
         } catch {
           ws.close(1008, 'invalid terminal message')
         }
@@ -160,7 +183,7 @@ export function startServer(config: ServerConfig, assets?: Assets) {
     hostname: config.host,
     port: config.port,
     fetch: app.fetch,
-    maxRequestBodySize: 1024 * 1024,
+    maxRequestBodySize: uploadBodyLimit,
     websocket: {
       ...websocket,
       maxPayloadLength: 1024 * 1024,
@@ -182,6 +205,7 @@ export function startServer(config: ServerConfig, assets?: Assets) {
       // DELETE removes sessions from the public list before their shell has exited.
       await Promise.all(closingSessions)
       await server.stop(true)
+      await uploads.close()
     },
   }
 }

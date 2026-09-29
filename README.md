@@ -84,6 +84,32 @@ continues to update this model while disconnected. The browser restores a
 snapshot before consuming live output and retries interrupted connections.
 History and sessions are in memory, not persisted across server restarts.
 Multiple browser windows share the same session list and shell processes.
+Only one window controls each session's input and size. The first attachment
+gets control; other windows are read-only until **Take control** is clicked.
+Disconnecting releases control, but does not automatically hand it to an existing
+viewer. A newly attached window can claim an unowned session.
+
+The server answers terminal device and color queries, including while detached.
+Browser views never resend parser-generated replies, and screen restoration
+blocks user input until the snapshot and control assignment have arrived.
+The controlling browser supplies the session's color theme.
+
+## Terminal interaction
+
+macOS Option-arrow word movement and Safari Shift-symbol handling follow
+Goblin's terminal behavior. IME composition is left to xterm. HTTP(S) links,
+including OSC 8 hyperlinks, open in a separate tab. On touch devices, the terminal
+provides scrollback gestures, cursor keys, Esc, Tab, Ctrl-C, and a file picker;
+normal scrollback gestures do not intercept full-screen mouse applications.
+The viewport follows the software keyboard without observing font loading.
+
+Paste or drop files to upload them and insert shell-quoted paths without pressing
+Enter. Ordinary text and spreadsheet pastes retain xterm's bracketed-paste behavior.
+Files are stored on the lin server, not at their original browser-side paths.
+The limit is 25 MiB per file, 32 MiB and 256 files per request, and 256 MiB / 1,024
+files retained per running server. Uploads are private temporary files and are
+removed on normal server shutdown. Input is not replayed if control or connection
+changes during upload; paste again explicitly in the controlling window.
 
 Screen parsing, snapshots, and resize notifications are ordered per session.
 Slow WebSocket viewers are disconnected and restore a fresh snapshot on reconnect.

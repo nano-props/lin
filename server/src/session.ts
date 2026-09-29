@@ -3,9 +3,10 @@ import { homedir } from 'node:os'
 import { basename } from 'node:path'
 import { createTerminalState } from './terminal-state.js'
 import { TerminalOutput } from './terminal-output'
-import { exitPayload, payload, sizePayload } from './protocol'
+import { type ClientMessage, exitPayload, payload, sizePayload } from './protocol'
 
 export interface Viewer {
+  readonly id: string
   send(bytes: Uint8Array): void
   close(code: number, reason: string): void
   readonly open: boolean
@@ -17,6 +18,8 @@ export class Session {
   readonly process: Bun.Subprocess
   private screen = createTerminalState(80, 24)
   private output = new TerminalOutput()
+  private controller?: Viewer
+  private controlRevision = 0
   private viewers = new Set<Viewer>()
   private queue: Promise<unknown> = Promise.resolve()
   private closing = false
@@ -117,11 +120,51 @@ export class Session {
       )
       // No await between snapshot and attachment: later output follows the same parser boundary.
       this.viewers.add(viewer)
+      if (!this.controller) this.setController(viewer)
+      else viewer.send(payload(6, JSON.stringify({ control: false, viewer: viewer.id })))
     })
   }
 
   detach(viewer: Viewer) {
     this.viewers.delete(viewer)
+    if (this.controller === viewer) this.setController(undefined)
+  }
+
+  private setController(viewer: Viewer | undefined) {
+    this.controller = viewer
+    this.controlRevision++
+    for (const client of this.viewers)
+      client.send(payload(6, JSON.stringify({ control: client === viewer, viewer: client.id })))
+  }
+
+  uploadPermit(id: string): (() => boolean) | undefined {
+    const viewer = [...this.viewers].find((client) => client.id === id)
+    return viewer ? this.inputPermit(viewer) : undefined
+  }
+
+  inputPermit(viewer: Viewer): (() => boolean) | undefined {
+    if (this.closing || !viewer.open || this.controller !== viewer) return
+    const revision = this.controlRevision
+    return () => !this.closing && viewer.open && this.controller === viewer && this.controlRevision === revision
+  }
+
+  async handle(viewer: Viewer, message: ClientMessage): Promise<void> {
+    await this.enqueue(() => {
+      if (this.closing || !viewer.open || !this.viewers.has(viewer)) return
+      if ('takeover' in message) {
+        this.setController(viewer)
+        return
+      }
+      if (this.controller !== viewer) {
+        viewer.send(payload(7, 'This terminal is controlled by another window. Take control to type.'))
+        return
+      }
+      if ('input' in message) this.write(message.input)
+      else if ('theme' in message) {
+        this.screen.setTheme(message.theme)
+        this.broadcast(payload(0, this.screen.colorSnapshot()))
+      } else this.applyResize(message.cols, message.rows)
+    })
   }
 
   write(bytes: Uint8Array) {
@@ -129,12 +172,14 @@ export class Session {
   }
 
   resize(cols: number, rows: number): Promise<void> {
-    return this.enqueue(() => {
-      if (this.closing || (this.screen.cols === cols && this.screen.rows === rows)) return
-      this.process.terminal!.resize(cols, rows)
-      this.screen.resize(cols, rows)
-      this.broadcast(sizePayload(5, cols, rows))
-    })
+    return this.enqueue(() => this.applyResize(cols, rows))
+  }
+
+  private applyResize(cols: number, rows: number) {
+    if (this.closing || (this.screen.cols === cols && this.screen.rows === rows)) return
+    this.process.terminal!.resize(cols, rows)
+    this.screen.resize(cols, rows)
+    this.broadcast(sizePayload(5, cols, rows))
   }
 
   private broadcast(bytes: Uint8Array) {

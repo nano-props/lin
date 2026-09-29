@@ -17,9 +17,28 @@ export function exitPayload(code: number): Buffer {
   return bytes
 }
 
-export function decodeInput(message: string | Uint8Array): { input: Uint8Array } | { cols: number; rows: number } {
+export type ClientMessage =
+  { input: Uint8Array } | { cols: number; rows: number } | { takeover: true } | { theme: string[] }
+
+export function decodeInput(message: string | Uint8Array): ClientMessage {
   if (typeof message === 'string' || !message.length) throw new Error('binary terminal message required')
   if (message[0] === 0) return { input: message.subarray(1) }
+  if (message[0] === 2 && message.length === 1) return { takeover: true }
+  if (message[0] === 3) {
+    if (message.length > 256) throw new Error('invalid theme')
+    const theme: unknown = JSON.parse(new TextDecoder().decode(message.subarray(1)))
+    if (
+      !Array.isArray(theme) ||
+      theme.length !== 19 ||
+      !theme.every((color) => typeof color === 'string' && /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(color))
+    )
+      throw new Error('invalid theme')
+    return {
+      theme: theme.map((color: string) =>
+        color.length === 4 ? '#' + [...color.slice(1)].map((channel) => channel + channel).join('') : color,
+      ),
+    }
+  }
   if (message[0] !== 1 || message.length !== 5) throw new Error('invalid terminal message')
   const view = new DataView(message.buffer, message.byteOffset, message.byteLength)
   const cols = view.getUint16(1),

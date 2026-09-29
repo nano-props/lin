@@ -168,3 +168,47 @@ test('initial snapshots have a separate budget from live output', () => {
   viewer.send(payload(0, 'overflow'))
   expect(closed).toBe(true)
 })
+
+test('headless answers color queries once and restores palette changes', async () => {
+  const screen = createTerminalState(80, 24),
+    restored = createTerminalState(80, 24)
+  try {
+    await screen.write('\x1b]10;?\x07\x1b]11;?\x1b\\')
+    expect(screen.replies()).toBe('\x1b]10;rgb:1d1d/1d1d/1f1f\x1b\\\x1b]11;rgb:ffff/ffff/ffff\x1b\\')
+    expect(screen.replies()).toBe('')
+    await screen.write('\x1b]4;1;#123456;1;?\x07\x1b]10;#abcdef\x07')
+    expect(screen.replies()).toBe('\x1b]4;1;rgb:1212/3434/5656\x1b\\')
+    await restored.write(screen.snapshot())
+    expect(restored.replies()).toBe('')
+    for (const state of [screen, restored]) {
+      await state.write('\x1b]10;?\x07\x1b]4;1;?\x07')
+      expect(state.replies()).toBe('\x1b]10;rgb:abab/cdcd/efef\x1b\\\x1b]4;1;rgb:1212/3434/5656\x1b\\')
+      await state.write('\x1b]110\x07\x1b]10;?\x07')
+      expect(state.replies()).toBe('\x1b]10;rgb:1d1d/1d1d/1f1f\x1b\\')
+    }
+  } finally {
+    screen.dispose()
+    restored.dispose()
+  }
+})
+
+test('theme messages normalize optimized CSS hex colors and reject malformed palettes', () => {
+  expect(decodeInput(payload(3, JSON.stringify(Array(19).fill('#fff'))))).toEqual({ theme: Array(19).fill('#ffffff') })
+  for (const theme of [Array(18).fill('#ffffff'), Array(19).fill('red'), Array(19).fill('#12345'), {}]) {
+    expect(() => decodeInput(payload(3, JSON.stringify(theme)))).toThrow()
+  }
+})
+
+test('theme changes preserve application color overrides until explicit reset', async () => {
+  const screen = createTerminalState(80, 24)
+  try {
+    await screen.write('\x1b]11;#123456\x07')
+    screen.setTheme(Array(19).fill('#eeeeee'))
+    await screen.write('\x1b]11;?\x07\x1b]10;?\x07')
+    expect(screen.replies()).toBe('\x1b]11;rgb:1212/3434/5656\x1b\\\x1b]10;rgb:eeee/eeee/eeee\x1b\\')
+    await screen.write('\x1b]111\x07\x1b]11;?\x07')
+    expect(screen.replies()).toBe('\x1b]11;rgb:eeee/eeee/eeee\x1b\\')
+  } finally {
+    screen.dispose()
+  }
+})

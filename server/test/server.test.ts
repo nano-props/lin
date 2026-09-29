@@ -233,3 +233,59 @@ test('shutdown waits for a session whose DELETE is still terminating its shell',
     await deletion
   }
 }, 10000)
+
+test('only the controller can input or resize; explicit takeover transfers authority', async () => {
+  start()
+  const id = await create(),
+    first = await connect(id),
+    second = await connect(id)
+  expect(JSON.parse((await first.next(6)).subarray(1).toString()).control).toBe(true)
+  expect(JSON.parse((await second.next(6)).subarray(1).toString()).control).toBe(false)
+  second.send("printf 'unexpected-input\\n'\n")
+  expect((await second.next(7)).subarray(1).toString()).toContain('another window')
+  second.socket.send(sizePayload(1, 120, 35))
+  await second.next(7)
+  const third = await connect(id)
+  const before = await third.next(4)
+  expect(before.readUInt16BE(1)).toBe(80)
+  expect(before.subarray(5).toString()).not.toContain('unexpected-input')
+  second.socket.send(Buffer.from([2]))
+  expect(JSON.parse((await second.next(6)).subarray(1).toString()).control).toBe(true)
+  expect(JSON.parse((await first.next(6)).subarray(1).toString()).control).toBe(false)
+  first.send('echo forbidden\n')
+  await first.next(7)
+  second.socket.send(sizePayload(1, 100, 30))
+  await second.next(5)
+  second.send("printf 'new-%s\\n' controller\n")
+  await second.next(0, 'new-controller')
+})
+
+test('uploads require current controller, save safe paths and clean up on shutdown', async () => {
+  start()
+  const id = await create(),
+    client = await connect(id)
+  const { viewer } = JSON.parse((await client.next(6)).subarray(1).toString())
+  const upload = async (viewerId: string, content = 'test content') => {
+    const body = new FormData()
+    body.append('files', new File([content], "../../evil\n'file.txt"))
+    return fetch(`${service.origin}/api/uploads?session=${id}&viewer=${viewerId}`, {
+      method: 'POST',
+      headers: { Cookie: `lin_access=${token}`, Origin: service.origin },
+      body,
+    })
+  }
+  expect((await upload('invalid')).status).toBe(403)
+  const response = await upload(viewer)
+  expect(response.status).toBe(200)
+  const paths = (await response.json()) as string[]
+  expect(paths.length).toBe(1)
+  expect(paths[0]).not.toMatch(/[\x00-\x1f']/)
+  expect(await Bun.file(paths[0]!).text()).toBe('test content')
+  const second = await connect(id)
+  await second.next(6)
+  second.socket.send(Buffer.from([2]))
+  await second.next(6)
+  expect((await upload(viewer)).status).toBe(403)
+  await service.close()
+  expect(await Bun.file(paths[0]!).exists()).toBe(false)
+})

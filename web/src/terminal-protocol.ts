@@ -1,3 +1,4 @@
+import type { ITheme } from '@xterm/xterm'
 const CLIENT_INPUT = 0
 const CLIENT_RESIZE = 1
 const SERVER_OUTPUT = 0
@@ -54,4 +55,37 @@ export function decodeServerResize(bytes: Uint8Array<ArrayBufferLike>): { cols: 
   if (bytes[0] !== 5 || bytes.length !== 5) return null
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   return { cols: view.getUint16(1), rows: view.getUint16(3) }
+}
+
+export function encodeTerminalTheme(theme: ITheme): Uint8Array<ArrayBuffer> {
+  const keys = [
+    'foreground',
+    'background',
+    'cursor',
+    'black',
+    'red',
+    'green',
+    'yellow',
+    'blue',
+    'magenta',
+    'cyan',
+    'white',
+    'brightBlack',
+    'brightRed',
+    'brightGreen',
+    'brightYellow',
+    'brightBlue',
+    'brightMagenta',
+    'brightCyan',
+    'brightWhite',
+  ] as const
+  const bytes = new TextEncoder().encode(JSON.stringify(keys.map((key) => theme[key])))
+  return new Uint8Array([3, ...bytes])
+}
+
+export function decodeTerminalControl(bytes: Uint8Array<ArrayBufferLike>): { control: boolean; viewer: string } | null {
+  if (bytes[0] !== 6) return null
+  const value = JSON.parse(new TextDecoder().decode(bytes.subarray(1)))
+  if (typeof value.control !== 'boolean' || typeof value.viewer !== 'string') throw new Error('Invalid control message')
+  return value
 }

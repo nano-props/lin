@@ -1,3 +1,4 @@
+import { installTerminalColors } from './terminal-colors.js'
 import { Terminal } from '@xterm/headless'
 import { SerializeAddon } from '@xterm/addon-serialize'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
@@ -12,11 +13,16 @@ export function createTerminalState(cols, rows) {
   terminal.onData((data) => {
     replies += data
   })
+  const colors = installTerminalColors(terminal, (data) => {
+    replies += data
+  })
   let title = ''
   terminal.onTitleChange((value) => {
     title = value.slice(0, 1024)
   })
   return {
+    setTheme: colors.setTheme,
+    colorSnapshot: colors.snapshot,
     write(raw) {
       return new Promise((resolve) => terminal.write(raw, resolve))
     },
@@ -61,7 +67,7 @@ export function createTerminalState(cols, rows) {
       content += sgr(core._inputHandler._curAttrData)
       content += core.coreService.isCursorHidden ? '\x1b[?25l' : '\x1b[?25h'
       if (core.coreMouseService.activeEncoding === 'SGR') content += '\x1b[?1006h'
-      return content
+      return colors.snapshot() + content
     },
     replies() {
       const result = replies
