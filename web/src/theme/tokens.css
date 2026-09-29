@@ -5,16 +5,14 @@
 :root {
   --lin-font-sans:
     -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', 'PingFang SC', 'Noto Sans SC', system-ui, sans-serif;
-  --lin-font-mono:
-    'Maple Mono', 'Cascadia Code', 'SFMono-Regular', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji',
-    monospace;
+  --lin-font-mono: 'Lin Mono', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', monospace;
   --lin-font-size-xs: 11px;
   --lin-font-size-sm: 12px;
   --lin-font-size-md: 13px;
   --lin-font-size-title: 24px;
   --lin-font-size-terminal: 14px;
   --lin-line-height: 1.5;
-  --lin-line-height-terminal: 1.15;
+  --lin-line-height-terminal: 1;
   --lin-space-1: 4px;
   --lin-space-2: 8px;
   --lin-space-3: 12px;

@@ -165,7 +165,14 @@ export const TerminalPane = defineComponent({
       connection.addEventListener('error', () => connection.close())
     }
 
-    onMounted(() => {
+    onMounted(async () => {
+      const appearance = terminalAppearance()
+      try {
+        await document.fonts.load(`${appearance.fontSize}px ${appearance.fontFamily}`)
+      } catch (error) {
+        console.warn('Terminal font failed to load; using fallback fonts.', error)
+      }
+      if (disposed) return
       if (!host.value) throw new Error('terminal host missing')
       terminal = new Terminal({
         allowProposedApi: true,
