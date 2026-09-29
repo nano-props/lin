@@ -18,7 +18,6 @@ import {
 import { terminalAppearance } from '#/theme/terminal-theme.ts'
 import { compactTerminalTitle } from '#/terminal-title.ts'
 
-export type TerminalSessionState = 'connecting' | 'online' | 'offline'
 export type ThemeMode = 'auto' | 'light' | 'dark'
 
 export const TerminalPane = defineComponent({
@@ -27,7 +26,7 @@ export const TerminalPane = defineComponent({
     sessionId: { type: Number, required: true },
     sessionKey: { type: String, required: true },
     active: { type: Boolean, required: true },
-    onStateChange: Function as PropType<(state: TerminalSessionState) => void>,
+    onError: Function as PropType<(message: string) => void>,
     onTitleChange: Function as PropType<(title: string) => void>,
   },
   setup(props) {
@@ -110,7 +109,6 @@ export const TerminalPane = defineComponent({
     const connect = (): void => {
       if (disposed || processExited) return
       ready = false
-      props.onStateChange?.('connecting')
       const connection = new WebSocket(webSocketUrl(props.sessionKey))
       socket = connection
       connection.binaryType = 'arraybuffer'
@@ -133,7 +131,7 @@ export const TerminalPane = defineComponent({
               if (socket !== connection || disposed || processExited || connection.readyState !== WebSocket.OPEN) return
               ready = true
               reconnectDelay = 250
-              props.onStateChange?.('online')
+              props.onError?.('')
               scheduleFit()
               if (props.active) focus()
             } else if (size) {
@@ -142,7 +140,7 @@ export const TerminalPane = defineComponent({
             } else if (exitCode != null) {
               processExited = true
               ready = false
-              props.onStateChange?.('offline')
+              props.onError?.(exitCode === 0 ? '' : `Terminal process exited with code ${exitCode}.`)
               await write(`\r\n\x1b[2m[process exited ${exitCode}]\x1b[0m\r\n`)
             } else if (metadata != null) {
               processName = metadata
@@ -157,8 +155,8 @@ export const TerminalPane = defineComponent({
       connection.addEventListener('close', () => {
         if (socket !== connection || disposed) return
         ready = false
-        props.onStateChange?.('offline')
         if (!processExited) {
+          props.onError?.('Terminal connection lost. Retrying…')
           reconnectTimer = setTimeout(connect, reconnectDelay)
           reconnectDelay = Math.min(reconnectDelay * 2, 5000)
         }

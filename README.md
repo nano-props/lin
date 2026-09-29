@@ -58,6 +58,13 @@ LIN_ALLOW_REMOTE  true/1/yes/on to enable
 
 Command-line arguments override environment variables. Non-loopback binding requires explicit remote access (`--allow-remote` or `LIN_ALLOW_REMOTE`). TLS and a trusted reverse proxy are recommended for remote exposure; forward `X-Forwarded-Proto: https` so the auth cookie is marked `Secure`.
 
+Login has no server-side time limit. The browser remembers it with a 400-day
+cookie, renewed on authenticated API requests (including the session-list poll).
+Clearing browser cookies, exceeding the browser's storage lifetime, or changing
+the server token requires logging in again. Set `LIN_TOKEN` or `--token` to keep
+the same login valid across server restarts; the default random token changes on
+each start.
+
 ## Platform
 
 The supported targets remain Linux x86_64 and macOS arm64. Bun's PTY API requires

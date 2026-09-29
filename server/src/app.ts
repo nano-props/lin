@@ -1,4 +1,4 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { getCookie, setCookie } from 'hono/cookie'
 import { bodyLimit } from 'hono/body-limit'
@@ -13,11 +13,24 @@ import { decodeInput } from './protocol'
 
 export type Assets = Map<string, string>
 const cookieName = 'lin_access'
+// Browsers cap persistent cookies at 400 days; authenticated HTTP requests renew it.
+const cookieMaxAge = 400 * 24 * 60 * 60
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function equalToken(expected: string, actual: string | undefined) {
   const hash = (value: string) => createHash('sha256').update(value).digest()
   return actual !== undefined && timingSafeEqual(hash(expected), hash(actual))
+}
+
+function rememberLogin(c: Context, token: string) {
+  setCookie(c, cookieName, token, {
+    httpOnly: true,
+    sameSite: 'Strict',
+    path: '/',
+    maxAge: cookieMaxAge,
+    secure:
+      c.req.header('x-forwarded-proto')?.toLowerCase() === 'https' || c.req.header('origin')?.startsWith('https://'),
+  })
 }
 
 export function startServer(config: ServerConfig, assets?: Assets) {
@@ -60,18 +73,12 @@ export function startServer(config: ServerConfig, assets?: Assets) {
         host = c.req.header('host')
       if (!host || (origin !== `http://${host}` && origin !== `https://${host}`)) return c.text('Invalid origin', 403)
     }
+    if (path.startsWith('/api/') && path !== '/api/auth') rememberLogin(c, config.token)
     await next()
   })
   app.post('/api/auth', bodyLimit({ maxSize: 4096 }), async (c) => {
     if (!equalToken(config.token, (await c.req.text()).trim())) return c.text('Invalid access token', 401)
-    setCookie(c, cookieName, config.token, {
-      httpOnly: true,
-      sameSite: 'Strict',
-      path: '/',
-      maxAge: 28800,
-      secure:
-        c.req.header('x-forwarded-proto')?.toLowerCase() === 'https' || c.req.header('origin')?.startsWith('https://'),
-    })
+    rememberLogin(c, config.token)
     return c.body(null, 204)
   })
   app.get('/api/auth/status', (c) => c.body(null, 204))

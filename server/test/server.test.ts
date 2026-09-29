@@ -78,6 +78,7 @@ test('authentication, CSRF, limits and static headers', async () => {
   expect(auth.status).toBe(204)
   expect(auth.headers.get('set-cookie')).toContain('HttpOnly')
   expect(auth.headers.get('set-cookie')).toContain('SameSite=Strict')
+  expect(auth.headers.get('set-cookie')).toContain('Max-Age=34560000')
   expect(
     (await request('/api/auth/status', 'GET', { Cookie: auth.headers.get('set-cookie')!.split(';')[0]! })).status,
   ).toBe(204)
@@ -89,6 +90,25 @@ test('authentication, CSRF, limits and static headers', async () => {
   expect((await request('/', 'HEAD')).headers.get('content-length')).not.toBe('0')
   expect((await request('/%2e%2e%2fpackage.json')).status).toBe(404)
   expect((await request('/api/sessions?session=bad', 'DELETE')).status).toBe(400)
+})
+
+test('renews remembered login on authenticated API requests only', async () => {
+  start()
+  for (const path of ['/api/auth/status', '/api/sessions']) {
+    const response = await request(path)
+    expect(response.status).toBe(path.endsWith('/status') ? 204 : 200)
+    expect(response.headers.get('set-cookie')).toContain('Max-Age=34560000')
+    expect(response.headers.get('set-cookie')).toContain('HttpOnly')
+    expect(response.headers.get('set-cookie')).toContain('SameSite=Strict')
+  }
+  const secure = await request('/api/auth/status', 'GET', { 'X-Forwarded-Proto': 'https' })
+  expect(secure.headers.get('set-cookie')).toContain('Secure')
+  const invalid = await request('/api/sessions', 'GET', { Cookie: 'lin_access=invalid' })
+  expect(invalid.status).toBe(401)
+  expect(invalid.headers.get('set-cookie')).toBeNull()
+  const crossOrigin = await request('/api/sessions', 'POST', { Origin: 'https://evil.example' })
+  expect(crossOrigin.status).toBe(403)
+  expect(crossOrigin.headers.get('set-cookie')).toBeNull()
 })
 
 test('retains detached shell, cwd and offline output; explicit delete closes it', async () => {

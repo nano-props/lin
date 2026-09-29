@@ -2,9 +2,7 @@ import { Plus, Terminal } from '@lucide/vue'
 import { useEventListener } from '@vueuse/core'
 import { computed, defineComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { PropType } from 'vue'
-import { ConnectionStatus } from '#/ConnectionStatus.tsx'
 import { TerminalPane } from '#/TerminalPane.tsx'
-import type { TerminalSessionState } from '#/TerminalPane.tsx'
 import { ThemeToggle } from '#/ThemeToggle.tsx'
 import { Tip } from '#/Tip.tsx'
 import { ToolbarClosableTab } from '#/ToolbarClosableTab.tsx'
@@ -14,7 +12,7 @@ interface TerminalTab {
   id: number
   sessionKey: string
   title: string
-  state: TerminalSessionState
+  error: string
 }
 
 const ACTIVE_STORAGE_KEY = 'lin-active-terminal'
@@ -30,20 +28,15 @@ export const App = defineComponent({
     const activeId = ref('')
     let nextId = 1
 
-    const connectionState = computed<TerminalSessionState>(() => {
-      if (tabs.value.some((tab) => tab.state === 'online')) return 'online'
-      if (tabs.value.some((tab) => tab.state === 'connecting')) return 'connecting'
-      return 'offline'
-    })
-
     const sessionError = ref('')
+    const terminalErrors = computed(() => tabs.value.filter((tab) => tab.error))
     const mutating = ref(false)
     let sessionRevision = 0
     let syncing = false
     let pollTimer: ReturnType<typeof setInterval> | undefined
 
     const addTab = (sessionKey: string): TerminalTab => {
-      const tab: TerminalTab = { id: nextId++, sessionKey, title: 'shell', state: 'connecting' }
+      const tab: TerminalTab = { id: nextId++, sessionKey, title: 'shell', error: '' }
       tabs.value.push(tab)
       return tab
     }
@@ -65,7 +58,7 @@ export const App = defineComponent({
               id: nextId++,
               sessionKey: key,
               title: 'shell',
-              state: 'connecting',
+              error: '',
             },
         )
         let preferred = current
@@ -153,7 +146,7 @@ export const App = defineComponent({
     })
     onBeforeUnmount(() => clearInterval(pollTimer))
 
-    const updateTab = (id: number, update: Partial<Pick<TerminalTab, 'title' | 'state'>>): void => {
+    const updateTab = (id: number, update: Partial<Pick<TerminalTab, 'title' | 'error'>>): void => {
       const tab = tabs.value.find((candidate) => candidate.id === id)
       if (tab) Object.assign(tab, update)
     }
@@ -236,13 +229,13 @@ export const App = defineComponent({
               {tabs.value.map((tab) => (
                 <ToolbarClosableTab
                   key={tab.id}
-                  containerClass={`tab ${activeId.value === String(tab.id) ? 'tab--active' : ''} tab--${tab.state}`}
+                  containerClass={`tab ${activeId.value === String(tab.id) ? 'tab--active' : ''}`}
                   containerProps={{ 'data-terminal-tab': String(tab.id) }}
                   buttonProps={{
                     role: 'tab',
                     id: `terminal-tab-${tab.id}`,
                     'aria-selected': activeId.value === String(tab.id),
-                    'aria-label': `${tab.title} · ${tab.state}`,
+                    'aria-label': tab.title,
                     'aria-controls': `terminal-panel-${tab.id}`,
                     'aria-keyshortcuts': 'Delete',
                     tabIndex: activeId.value === String(tab.id) ? 0 : -1,
@@ -269,7 +262,6 @@ export const App = defineComponent({
                     },
                   }}
                 >
-                  <span class="tab__state" aria-hidden="true" />
                   <span class="tab__title">{tab.title}</span>
                 </ToolbarClosableTab>
               ))}
@@ -285,7 +277,6 @@ export const App = defineComponent({
                 </button>
               </Tip>
             </div>
-            <ConnectionStatus state={connectionState.value} />
             <ThemeToggle modelValue={theme.value} onUpdate:modelValue={setTheme} />
           </header>
           {sessionError.value ? (
@@ -293,6 +284,11 @@ export const App = defineComponent({
               {sessionError.value}
             </div>
           ) : null}
+          {terminalErrors.value.map((tab) => (
+            <div key={tab.id} class="session-error" role="alert">
+              {tab.title}: {tab.error}
+            </div>
+          ))}
           <div class="terminals">
             {tabs.value.map((tab) => (
               <div
@@ -307,7 +303,7 @@ export const App = defineComponent({
                   sessionId={tab.id}
                   sessionKey={tab.sessionKey}
                   active={activeId.value === String(tab.id)}
-                  onStateChange={(state) => updateTab(tab.id, { state })}
+                  onError={(error) => updateTab(tab.id, { error })}
                   onTitleChange={(title) => updateTab(tab.id, { title })}
                 />
               </div>
@@ -357,15 +353,11 @@ const AccessRequired = defineComponent({
             <span class="identity__name">lin</span>
           </div>
           <div class="tabs" />
-          <div class="connection connection--offline">
-            <span class="connection__dot" />
-            <span>offline</span>
-          </div>
         </header>
         <section class="fatal">
           <span class="fatal__eyebrow">ACCESS REQUIRED</span>
           <h1>Connect to your local terminal.</h1>
-          <p>Paste the access token printed by the lin server. It stays in this browser session.</p>
+          <p>Paste the access token printed by the lin server. This browser will remember your login.</p>
           <form
             class="token-entry"
             onSubmit={(event) => {

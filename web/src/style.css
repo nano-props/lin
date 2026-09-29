@@ -116,22 +116,6 @@ button:focus-visible {
   color: inherit;
   text-align: left;
 }
-.tab__state,
-.connection__dot {
-  width: 5px;
-  height: 5px;
-  flex: 0 0 auto;
-  border-radius: var(--lin-radius-pill);
-  background: var(--lin-status-warning-text);
-}
-.tab--online .tab__state,
-.connection--online .connection__dot {
-  background: var(--lin-status-success-text);
-}
-.tab--offline .tab__state,
-.connection--offline .connection__dot {
-  background: var(--lin-status-danger-text);
-}
 .tab__title {
   min-width: 0;
   flex: 1;
@@ -185,14 +169,6 @@ button:focus-visible {
 button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
-}
-.connection {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: var(--lin-space-2);
-  color: var(--lin-text-secondary);
-  font-size: var(--lin-font-size-xs);
 }
 .terminals {
   position: relative;
@@ -358,9 +334,6 @@ button:disabled {
   font-size: var(--lin-font-size-xs);
 }
 @media (max-width: 600px) {
-  .connection span:last-child {
-    display: none;
-  }
   .identity {
     padding: 0 var(--lin-space-1);
   }
