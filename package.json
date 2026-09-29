@@ -1,0 +1,25 @@
+{
+  "name": "lin",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "web",
+    "server"
+  ],
+  "engines": {
+    "bun": ">=1.4.2"
+  },
+  "scripts": {
+    "dev": "bun run --cwd web build && bun server/src/index.ts",
+    "start": "bun server/src/index.ts",
+    "build": "bun run --cwd web build && bun scripts/build.ts",
+    "check": "tsc --noEmit -p server/tsconfig.json && tsc --noEmit -p web/tsconfig.json",
+    "test": "bun test server/test",
+    "format:check": "prettier --check server/src server/test scripts/*.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.2",
+    "typescript": "7.0.2",
+    "prettier": "^3.9.6"
+  }
+}

@@ -1,40 +1,45 @@
 # lin
 
-`lin` is a local-first web terminal distributed as one Linux executable. It serves a Vue/xterm.js interface and keeps login-shell-backed PTY sessions and terminal screens on the server.
+`lin` is a local-first web terminal distributed as one executable. It serves a Vue/xterm.js interface and keeps login-shell-backed PTY sessions and terminal screens on the server.
 
 ## Requirements
 
-Linux x86_64 or macOS arm64, GraalVM for JDK 25, Bun 1.4+, and a C compiler.
-Linux builds require Linux PTY headers (`libc6-dev`). macOS builds require Xcode Command Line Tools.
+Bun 1.4.2 or newer on Linux x86_64 or macOS arm64. No Java or C toolchain is required.
 
 ## Run
 
 ```bash
-./gradlew run
+bun install --frozen-lockfile
+bun run dev
 ```
 
-Open the tokenized URL printed by `lin`.
+This builds the frontend and starts the Bun + Hono server. Open the tokenized URL
+printed by `lin`. After the frontend is built, `bun run start` starts just the server.
+Use `bun run --cwd web dev` for the standalone Vite frontend development server.
 
-## Build
+## Build and test
 
 ```bash
-./gradlew test nativeCompile
-./server/build/native/nativeCompile/lin
+bun run check
+bun test
+bun run build
+./dist/lin
 ```
 
-The Gradle project is split into two subprojects:
+`bun run build` builds the Vue frontend and compiles the server with its static
+assets into one executable. The executable runs without Bun installed and can be
+started from any working directory. Build on the target platform.
 
-```text
-:server  Java server, PTY shim, and native image
-:web     Vue/xterm frontend
-```
+The repository is a Bun workspace:
 
-Gradle declares task dependencies and inputs/outputs. Shell scripts handle the build steps:
+- `server/src`: Hono routes, Bun WebSocket/PTY sessions, and the xterm screen model.
+- `server/test`: configuration, protocol, screen restoration, and real PTY/WebSocket tests.
+- `web`: Vue/xterm frontend, built with Vite.
+- `scripts/build.ts`: embeds the frontend assets and compiles `dist/lin`.
 
-- `scripts/build-web.sh` installs frontend dependencies and builds the web assets.
-- `scripts/build-pty-shim.sh [resource-directory]` detects the host platform, compiles the PTY library, and stages it under `native/<platform>/` for embedding. The default resource directory is `server/build/generated/pty-resources`; `CC` overrides the C compiler.
-
-The native executable embeds the frontend and PTY shim; it does not require a JVM at runtime.
+HTTP parsing and WebSocket framing are handled by Bun. Hono handles routing and
+cookies. Bun's built-in PTY API starts the login shell and handles input, output,
+resizing, and teardown.
 
 ## Configuration
 
@@ -55,26 +60,28 @@ Command-line arguments override environment variables. Non-loopback binding requ
 
 ## Platform
 
-The PTY shim supports Linux x86_64 and macOS arm64. Intel macOS is not supported.
+The supported targets remain Linux x86_64 and macOS arm64. Bun's PTY API requires
+a POSIX host; Windows is not supported by this application.
 
 ## Session lifetime and restoration
 
 Sessions and their creation order belong to the running server. Refreshing,
 closing a browser window or disconnecting does not end a session. Opening the
 same server again restores its tabs, screen, colors, cursor and recent history.
-Only closing a terminal tab, exiting its shell or stopping lin ends the session.
+Closing a terminal tab, exiting its shell or stopping lin ends the session.
 The selected tab is a per-browser preference.
 
-The server runs xterm headless in embedded GraalJS and retains up to 10,000
+The server runs xterm headless directly in Bun and retains up to 10,000
 scrollback lines per terminal, plus its current normal/alternate screen. Output
 continues to update this model while disconnected. The browser restores a
 snapshot before consuming live output and retries interrupted connections.
 History and sessions are in memory, not persisted across server restarts.
 Multiple browser windows share the same session list and shell processes.
 
-GraalJS is embedded in the native executable; no Node/Bun process is required at
-runtime. This increases binary size and build/runtime memory compared to a
-server that only forwards PTY bytes.
+Screen parsing, snapshots, and resize notifications are ordered per session.
+Slow WebSocket viewers are disconnected and restore a fresh snapshot on reconnect.
+A session is closed if its pending screen-parser output exceeds 16 MiB, keeping
+pathological terminal output from growing the server's memory without bound.
 
 ## Appearance
 

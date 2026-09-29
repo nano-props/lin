@@ -1,9 +1,5 @@
-.gradle/
 build/
 dist/
 node_modules/
 .idea/
 .playwright-cli/
-*.iml
-
-web/server-dist/

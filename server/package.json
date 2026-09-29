@@ -1,0 +1,11 @@
+{
+  "name": "lin-server",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@hono/bun": "1.0.0",
+    "@xterm/addon-serialize": "0.14.0",
+    "@xterm/headless": "6.0.0",
+    "hono": "4.13.10"
+  }
+}

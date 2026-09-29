@@ -1,25 +1,7 @@
-import './xterm-env.js'
 import { Terminal } from '@xterm/headless'
 import { SerializeAddon } from '@xterm/addon-serialize'
 
-// GraalJS has no browser event loop. Drain xterm's queued parser work before
-// returning to Java so a snapshot and the next live output share one boundary.
-const timers = new Map()
-let nextTimer = 0
-globalThis.setTimeout = (callback) => {
-  timers.set(++nextTimer, callback)
-  return nextTimer
-}
-globalThis.clearTimeout = (id) => timers.delete(id)
-const drain = () => {
-  while (timers.size) {
-    const [id, callback] = timers.entries().next().value
-    timers.delete(id)
-    callback()
-  }
-}
-
-globalThis.createTerminalState = (cols, rows) => {
+export function createTerminalState(cols, rows) {
   const terminal = new Terminal({ cols, rows, scrollback: 10_000, allowProposedApi: true })
   const serializer = new SerializeAddon()
   terminal.loadAddon(serializer)
@@ -33,8 +15,13 @@ globalThis.createTerminalState = (cols, rows) => {
   })
   return {
     write(raw) {
-      terminal.write(Uint8Array.from(raw, (c) => c.charCodeAt(0)))
-      drain()
+      return new Promise((resolve) => terminal.write(raw, resolve))
+    },
+    get cols() {
+      return terminal.cols
+    },
+    get rows() {
+      return terminal.rows
     },
     resize(cols, rows) {
       terminal.resize(cols, rows)
@@ -83,7 +70,6 @@ globalThis.createTerminalState = (cols, rows) => {
     },
     dispose() {
       terminal.dispose()
-      timers.clear()
     },
   }
 }
