@@ -1,5 +1,6 @@
 import { FitAddon } from '@xterm/addon-fit'
 import { SearchAddon } from '@xterm/addon-search'
+import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { Terminal } from '@xterm/xterm'
 import { useEventListener, useMutationObserver, useResizeObserver } from '@vueuse/core'
 import { defineComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
@@ -165,14 +166,7 @@ export const TerminalPane = defineComponent({
       connection.addEventListener('error', () => connection.close())
     }
 
-    onMounted(async () => {
-      const appearance = terminalAppearance()
-      try {
-        await document.fonts.load(`${appearance.fontSize}px ${appearance.fontFamily}`)
-      } catch (error) {
-        console.warn('Terminal font failed to load; using fallback fonts.', error)
-      }
-      if (disposed) return
+    onMounted(() => {
       if (!host.value) throw new Error('terminal host missing')
       terminal = new Terminal({
         allowProposedApi: true,
@@ -184,6 +178,8 @@ export const TerminalPane = defineComponent({
         scrollback: 10_000,
         scrollOnUserInput: true,
       })
+      terminal.loadAddon(new Unicode11Addon())
+      terminal.unicode.activeVersion = '11'
       fitAddon = new FitAddon()
       terminal.loadAddon(fitAddon)
       searchAddon = new SearchAddon()

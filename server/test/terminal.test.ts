@@ -7,6 +7,25 @@ import type { ServerWebSocket } from 'bun'
 
 const encode = (text: string) => new TextEncoder().encode(text)
 
+test('emoji occupies two cells and preserves wrapping after snapshot restore', async () => {
+  const original = createTerminalState(80, 24),
+    restored = createTerminalState(80, 24)
+  try {
+    await original.write('A👾B\x1b[6n')
+    expect(original.replies()).toBe('\x1b[1;5R')
+    await original.write('\r\n' + 'x'.repeat(78) + '👾')
+    await restored.write(original.snapshot())
+    for (const screen of [original, restored]) {
+      await screen.write('!\x1b[6n')
+      expect(screen.replies()).toBe('\x1b[3;2R')
+    }
+    expect(restored.snapshot()).toBe(original.snapshot())
+  } finally {
+    original.dispose()
+    restored.dispose()
+  }
+})
+
 test('restores alternate screen, colors, title, modes and subsequent output', async () => {
   const terminal = createTerminalState(80, 24),
     restored = createTerminalState(80, 24)

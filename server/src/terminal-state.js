@@ -1,8 +1,11 @@
 import { Terminal } from '@xterm/headless'
 import { SerializeAddon } from '@xterm/addon-serialize'
+import { Unicode11Addon } from '@xterm/addon-unicode11'
 
 export function createTerminalState(cols, rows) {
   const terminal = new Terminal({ cols, rows, scrollback: 10_000, allowProposedApi: true })
+  terminal.loadAddon(new Unicode11Addon())
+  terminal.unicode.activeVersion = '11'
   const serializer = new SerializeAddon()
   terminal.loadAddon(serializer)
   let replies = ''
