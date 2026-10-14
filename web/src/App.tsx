@@ -46,7 +46,7 @@ export const App = defineComponent({
     let pollTimer: ReturnType<typeof setInterval> | undefined
 
     const addTab = (sessionKey: string): TerminalTab => {
-      const tab: TerminalTab = { id: nextId++, sessionKey, title: 'shell', error: '' }
+      const tab: TerminalTab = { id: nextId++, sessionKey, title: '', error: '' }
       tabs.value.push(tab)
       return tab
     }
@@ -67,7 +67,7 @@ export const App = defineComponent({
             existing.get(key) ?? {
               id: nextId++,
               sessionKey: key,
-              title: 'shell',
+              title: '',
               error: '',
             },
         )
@@ -245,7 +245,7 @@ export const App = defineComponent({
                     role: 'tab',
                     id: `terminal-tab-${tab.id}`,
                     'aria-selected': activeId.value === String(tab.id),
-                    'aria-label': tab.title,
+                    'aria-label': tab.title || 'Terminal',
                     'aria-controls': `terminal-panel-${tab.id}`,
                     'aria-keyshortcuts': 'Delete',
                     tabIndex: activeId.value === String(tab.id) ? 0 : -1,
@@ -290,7 +290,7 @@ export const App = defineComponent({
           ) : null}
           {terminalErrors.value.map((tab) => (
             <div key={tab.id} class="session-error" role="alert">
-              {tab.title}: {tab.error}
+              {tab.title || 'Terminal'}: {tab.error}
             </div>
           ))}
           <div class="terminals">
